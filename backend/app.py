@@ -1,0 +1,25 @@
+"""
+App entrypoint. This file should stay thin: create the app, enable CORS,
+register each feature's blueprint, and run.
+
+Adding a whole new feature area (e.g. a notifications API)? Create
+routes/notifications_routes.py with its own Blueprint and register it below
+— you shouldn't need to touch any other route file to do it.
+"""
+
+from flask import Flask
+from flask_cors import CORS
+
+from routes.file_routes import file_bp
+from routes.match_routes import match_bp
+
+app = Flask(__name__)
+# Enable CORS to allow your separate Frontend UI to communicate with this Backend
+CORS(app)
+
+app.register_blueprint(file_bp)
+app.register_blueprint(match_bp)
+
+
+if __name__ == '__main__':
+    app.run(port=5001, debug=True)
