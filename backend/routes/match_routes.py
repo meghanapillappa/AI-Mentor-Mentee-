@@ -34,6 +34,8 @@ def match_mentors_students():
 
         students_data = data.get("students", [])
         mentors_list = data.get("mentors", [])
+        excluded_mentors = data.get("excluded_mentors", [])
+
 
         if not students_data or not mentors_list:
             return jsonify({
@@ -45,8 +47,7 @@ def match_mentors_students():
         students_df["CGPA"] = pd.to_numeric(students_df["CGPA"], errors="coerce")
         students_df = students_df.dropna(subset=["CGPA"])
 
-        matched_results = balance_matching(students_df, mentors_list)
-
+        matched_results = balance_matching(students_df, mentors_list, excluded_mentors)
         return jsonify(matched_results)
 
     except Exception as e:
@@ -116,13 +117,15 @@ def rebalance_remove_route():
 
         cohorts = data.get("cohorts", [])
         removed_mentor = (data.get("removed_mentor") or "").strip()
+        excluded_mentors = data.get("excluded_mentors", [])
+
 
         if not cohorts:
             return jsonify({"error": "No existing match to rebalance"}), 400
         if not removed_mentor:
             return jsonify({"error": "removed_mentor is required"}), 400
 
-        updated = remove_mentor_rebalance(cohorts, removed_mentor)
+        updated = remove_mentor_rebalance(cohorts, removed_mentor, excluded_mentors)
         return jsonify(updated)
 
     except ValueError as ve:

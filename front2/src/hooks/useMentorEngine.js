@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiParseFile, apiRebalanceAdd, apiRebalanceRemove, apiRunMatch, apiSaveFile } from '../lib/api';
-import { buildMentorNameMap, extractMentorsList, extractStudentsList, stripInternalFields } from '../lib/utils';
+import { buildMentorNameMap, extractMentorsList, extractStudentsList, stripInternalFields,extractExcludedMentors } from '../lib/utils';
 import { buildAuditEvent } from '../lib/auditLog';
 
 const EMPTY_STATUS = { text: '', kind: '' };
@@ -115,6 +115,14 @@ export function useMentorEngine() {
     });
   }, []);
 
+  const toggleMentorExcluded = useCallback((rIdx) => {
+  setMentorsData(prev => {
+    const rows = [...prev];
+    rows[rIdx] = { ...rows[rIdx], _excluded: !rows[rIdx]._excluded };
+    return rows;
+  });
+  }, []);
+
   const saveDataset = useCallback(async (rows, format, filenameBase) => {
     try {
       const response = await apiSaveFile(stripInternalFields(rows), format, filenameBase);
@@ -153,6 +161,39 @@ export function useMentorEngine() {
     setReallocationVisible(true);
   }, []);
 
+  const reassignReallocationGroup = useCallback((students, fromMentor, toMentor) => {
+    if (!toMentor || toMentor === fromMentor) return;
+    const movingUids = new Set(students.map(s => s.uid));
+
+    setLastCohorts(prev => {
+      const next = prev.map(c => ({ ...c, students: [...c.students] }));
+      const fromCohort = next.find(c => c.mentor === fromMentor);
+      const toCohort = next.find(c => c.mentor === toMentor);
+      if (!fromCohort || !toCohort) return prev;
+
+      const moving = fromCohort.students.filter(s => movingUids.has(s.uid));
+      fromCohort.students = fromCohort.students.filter(s => !movingUids.has(s.uid));
+      toCohort.students = [...toCohort.students, ...moving];
+
+      [fromCohort, toCohort].forEach(c => {
+        c.student_count = c.students.length;
+        c.average_gpa = c.students.length
+          ? Number((c.students.reduce((sum, s) => sum + s.CGPA, 0) / c.students.length).toFixed(3))
+          : 0;
+      });
+
+      return next;
+    });
+
+    setLastReallocation(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        moves: prev.moves.map(m => (movingUids.has(m.student.uid) ? { ...m, toMentor } : m)),
+      };
+    });
+  }, []);
+
   // -------------------------------------------------------------------------
   // Audit log (feature: persistent history of every mentor add/remove)
   // -------------------------------------------------------------------------
@@ -176,9 +217,10 @@ export function useMentorEngine() {
 
     const mentors = extractMentorsList(mentorsData);
     const students = extractStudentsList(studentsData);
+    const excludedMentors = extractExcludedMentors(mentorsData);
 
     try {
-      const cohorts = await apiRunMatch(students, mentors);
+    const cohorts = await apiRunMatch(students, mentors, excludedMentors);
 
       if (!Array.isArray(cohorts) || cohorts.length === 0) {
         setMatchError('No matches were produced. Check your uploaded data.');
@@ -204,6 +246,8 @@ export function useMentorEngine() {
 
   useEffect(() => {
     if (lastCohorts.length === 0) return undefined;
+    const excludedMentors = extractExcludedMentors(mentorsData);
+    const excludedNames = new Set(excludedMentors);
 
     let cancelled = false;
 
@@ -230,7 +274,7 @@ export function useMentorEngine() {
         const cohortBefore = cohorts.find(c => c.mentor === removedName);
         const orphanedStudents = cohortBefore ? [...cohortBefore.students] : [];
 
-        const result = await apiRebalanceRemove(cohorts, removedName);
+         const result = await apiRebalanceRemove(cohorts, removedName, excludedMentors);
         if (!result.ok) {
           alert(`Could not remove mentor "${removedName}": ${result.error}`);
           continue;
@@ -249,6 +293,11 @@ export function useMentorEngine() {
       const addedUids = [...currentMap.keys()].filter(uid => !snapshot.has(uid));
       for (const uid of addedUids) {
         const newName = currentMap.get(uid);
+        if (excludedNames.has(newName)) {
+          cohorts = [...cohorts, { mentor: newName, average_gpa: 0, student_count: 0, students: [] }];
+          snapshot.set(uid, newName);
+          continue;
+        }
         const result = await apiRebalanceAdd(cohorts, newName);
         if (!result.ok) {
           alert(`Could not add mentor "${newName}": ${result.error}`);
@@ -295,5 +344,8 @@ export function useMentorEngine() {
     saveDataset,
     runMatch,
     setReallocationVisible,
+    toggleMentorExcluded,
+    reassignReallocationGroup,
+
   };
 }

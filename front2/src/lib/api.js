@@ -74,13 +74,13 @@ export async function apiSaveFile(rows, format, filenameBase) {
 }
 
 /** POST /api/match — run the full balancing algorithm. Returns cohorts (throws on error). */
-export async function apiRunMatch(students, mentors) {
+export async function apiRunMatch(students, mentors, excludedMentors = []) {
   let response;
   try {
     response = await fetch(`${API_BASE}/api/match`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ students, mentors }),
+      body: JSON.stringify({ students, mentors, excluded_mentors: excludedMentors }),
     });
   } catch (networkErr) {
     throw new Error(
@@ -116,13 +116,13 @@ export async function apiRebalanceAdd(cohorts, newMentorName) {
 }
 
 /** POST /api/rebalance-remove — same { ok, data|error } shape as apiRebalanceAdd. */
-export async function apiRebalanceRemove(cohorts, removedMentorName) {
+export async function apiRebalanceRemove(cohorts, removedMentorName, excludedMentors = []) {
   let response;
   try {
     response = await fetch(`${API_BASE}/api/rebalance-remove`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cohorts, removed_mentor: removedMentorName }),
+      body: JSON.stringify({ cohorts, removed_mentor: removedMentorName, excluded_mentors: excludedMentors }),
     });
   } catch (networkErr) {
     return { ok: false, error: `Could not connect to ${API_BASE} to remove mentor "${removedMentorName}".` };

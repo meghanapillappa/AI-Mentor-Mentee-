@@ -25,37 +25,40 @@ def assign_grade(cgpa):
         return 'D'
 
 
-def balance_matching(students_df, mentors_list):
+def balance_matching(students_df, mentors_list,excluded_mentors=None):
     """
     Matches students to mentors ensuring:
     1. Even representation from each Grade and Section combination.
     2. Evenly balanced overall average GPA across all mentors.
     """
     students_df['Grade'] = students_df['CGPA'].apply(assign_grade)
+    excluded_set = set(excluded_mentors or [])
+    eligible_mentors = [m for m in mentors_list if m not in excluded_set]
 
     mentor_assignments = {m: [] for m in mentors_list}
     mentor_strata_counts = {m: {} for m in mentors_list}
 
     strata_groups = students_df.groupby(['Grade', 'Section'])
 
-    for (grade, section), group in strata_groups:
-        sorted_group = group.sort_values(by='CGPA', ascending=False).to_dict('records')
+    if eligible_mentors:
+        for (grade, section), group in strata_groups:
+            sorted_group = group.sort_values(by='CGPA', ascending=False).to_dict('records')
 
-        for student in sorted_group:
-            def mentor_suitability(m):
-                stratum_count = mentor_strata_counts[m].get((grade, section), 0)
-                total_count = len(mentor_assignments[m])
-                gpa_sum = sum(s['CGPA'] for s in mentor_assignments[m])
-                avg_gpa = (gpa_sum / total_count) if total_count > 0 else 0.0
-                return (stratum_count, total_count, avg_gpa)
+            for student in sorted_group:
+                def mentor_suitability(m):
+                    stratum_count = mentor_strata_counts[m].get((grade, section), 0)
+                    total_count = len(mentor_assignments[m])
+                    gpa_sum = sum(s['CGPA'] for s in mentor_assignments[m])
+                    avg_gpa = (gpa_sum / total_count) if total_count > 0 else 0.0
+                    return (stratum_count, total_count, avg_gpa)
 
-            chosen_mentor = min(mentors_list, key=mentor_suitability)
+                chosen_mentor = min(eligible_mentors, key=mentor_suitability)
 
-            mentor_assignments[chosen_mentor].append(student)
-            mentor_strata_counts[chosen_mentor][(grade, section)] = \
-                mentor_strata_counts[chosen_mentor].get((grade, section), 0) + 1
+                mentor_assignments[chosen_mentor].append(student)
+                mentor_strata_counts[chosen_mentor][(grade, section)] = \
+                    mentor_strata_counts[chosen_mentor].get((grade, section), 0) + 1
 
-    return format_cohort_results(mentor_assignments)
+        return format_cohort_results(mentor_assignments)
 
 
 def format_cohort_results(mentor_assignments):
@@ -172,21 +175,25 @@ def add_mentor_rebalance(cohorts, new_mentor):
     }
 
 
-def remove_mentor_rebalance(cohorts, removed_mentor):
+def remove_mentor_rebalance(cohorts, removed_mentor,excluded_mentors=None):
     """
     Removes a mentor and redistributes ONLY that mentor's students among the
     remaining mentors. Every other mentor's existing mapping is left untouched.
     """
     mentor_assignments = cohorts_to_assignments(cohorts)
+    excluded_set = set(excluded_mentors or [])
 
     if removed_mentor not in mentor_assignments:
         raise ValueError(f"Mentor '{removed_mentor}' was not found in the current mapping.")
 
     orphaned_students = mentor_assignments.pop(removed_mentor)
     remaining_mentors = list(mentor_assignments.keys())
+    eligible_mentors = [m for m in remaining_mentors if m not in excluded_set]
 
     if not remaining_mentors:
         raise ValueError("Cannot remove the only remaining mentor.")
+    if not eligible_mentors:
+        raise ValueError("All remaining mentors are excluded; no one is eligible to receive these mentees.")
 
     mentor_strata_counts = build_strata_counts(mentor_assignments)
 
@@ -210,7 +217,7 @@ def remove_mentor_rebalance(cohorts, removed_mentor):
                 avg_gpa = (gpa_sum / total_count) if total_count > 0 else 0.0
                 return (stratum_count, total_count, avg_gpa)
 
-            chosen_mentor = min(remaining_mentors, key=mentor_suitability)
+            chosen_mentor = min(eligible_mentors, key=mentor_suitability)
             mentor_assignments[chosen_mentor].append(student)
             mentor_strata_counts[chosen_mentor][key] = mentor_strata_counts[chosen_mentor].get(key, 0) + 1
             redistribution_map[chosen_mentor].append(student)

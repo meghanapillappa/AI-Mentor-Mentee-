@@ -26,3 +26,10 @@ function setStatus(el, message, kind) {
 function verifyMatchReady() {
   matchBtn.disabled = !(mentorsData.length > 0 && studentsData.length > 0);
 }
+
+export function extractExcludedMentors(mentorsData) {
+  return mentorsData
+    .filter(row => row._excluded)
+    .map(row => getMentorName(row) ?? Object.values(row).find(v => v !== undefined && v !== null && v !== ''))
+    .filter(Boolean);
+}

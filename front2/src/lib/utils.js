@@ -62,3 +62,10 @@ export function extractStudentsList(studentsData) {
     })
     .filter(s => s.name && !isNaN(s.CGPA));
 }
+
+export function extractExcludedMentors(mentorsData) {
+  return mentorsData
+    .filter(row => row._excluded)
+    .map(row => getMentorName(row) ?? Object.values(row).find(v => v !== undefined && v !== null && v !== ''))
+    .filter(Boolean);
+}

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
-export default function DatasetEditor({ keyName, title, data, onChangeCell, onRemoveRow, onAddRow, onSave }) {
-  const [format, setFormat] = useState('csv');
+export default function DatasetEditor({ keyName, title, data, onChangeCell, onRemoveRow, onAddRow, onSave, onToggleExclude }) {
+    const [format, setFormat] = useState('csv');
 
   // Union of all keys across rows, in first-seen order (internal _uid hidden)
   const columns = useMemo(() => {
@@ -28,6 +28,7 @@ export default function DatasetEditor({ keyName, title, data, onChangeCell, onRe
           <thead>
             <tr>
               {columns.map(col => <th key={col}>{col}</th>)}
+              {keyName === 'mentors' && <th title="Skip this mentor when assigning mentees">Exclude</th>}
               <th></th>
             </tr>
           </thead>
@@ -43,6 +44,15 @@ export default function DatasetEditor({ keyName, title, data, onChangeCell, onRe
                     />
                   </td>
                 ))}
+                {keyName === 'mentors' && (
+                  <td className="row-exclude" title="Excluded mentors stay on the roster but never receive mentees">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(row._excluded)}
+                      onChange={() => onToggleExclude(rIdx)}
+                    />
+                  </td>
+                )}
                 <td className="row-remove">
                   <button title="Remove row" onClick={() => onRemoveRow(rIdx)}>✕</button>
                 </td>
@@ -69,6 +79,7 @@ export default function DatasetEditor({ keyName, title, data, onChangeCell, onRe
         <small style={{ display: 'block', marginTop: 8 }}>
           Once a match has run, adding or removing a mentor here automatically
           rebalances just that mentor's slice — everyone else's mapping stays put.
+          to exclude mentors from being assigned mentees tick the exclude checkbox.
         </small>
       )}
     </div>

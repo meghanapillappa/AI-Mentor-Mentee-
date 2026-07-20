@@ -577,6 +577,25 @@
     padding: 3px 8px;
     border-radius: 4px;
   }
+  .realloc-reassign {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border-subtle);
+  }
+  .realloc-reassign label {
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+  .realloc-reassign select {
+    font-size: 12px;
+    padding: 3px 6px;
+  }
+  td.row-exclude {
+    text-align: center;
+  }
 
   /* --- Audit log (sidebar): persistent history of mentor add/remove events --- */
   .redistribution-log {

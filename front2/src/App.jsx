@@ -7,6 +7,7 @@ import ReallocationBanner from './components/ReallocationBanner';
 import MacroMetrics from './components/MacroMetrics';
 import SearchFilterBar, { DEFAULT_FILTERS } from './components/SearchFilterBar';
 import CohortsGrid from './components/CohortsGrid';
+import { extractExcludedMentors } from './lib/utils';
 
 export default function App() {
   const engine = useMentorEngine();
@@ -17,6 +18,10 @@ export default function App() {
   // Mentor/section select options + view-limit slider bounds, ported from
   // filters.js populateFilterOptions().
   const mentorOptions = useMemo(() => lastCohorts.map(c => c.mentor), [lastCohorts]);
+  const reassignableMentorOptions = useMemo(() => {
+  const excluded = new Set(extractExcludedMentors(engine.mentorsData));
+  return mentorOptions.filter(m => !excluded.has(m));
+  }, [mentorOptions, engine.mentorsData]);
 
   const sectionOptions = useMemo(() => {
     const sections = new Set();
@@ -71,6 +76,8 @@ export default function App() {
             }}
             onAddRow={() => engine.addBlankRow('mentors')}
             onSave={(format) => engine.saveDataset(engine.mentorsData, format, 'mentors')}
+            onToggleExclude={(rIdx) => engine.toggleMentorExcluded(rIdx)}
+
           />
 
           <DatasetEditor
@@ -93,6 +100,8 @@ export default function App() {
             <ReallocationBanner
               report={engine.lastReallocation}
               onClose={() => engine.setReallocationVisible(false)}
+              mentorOptions={reassignableMentorOptions}
+              onReassign={engine.reassignReallocationGroup}
             />
           )}
 

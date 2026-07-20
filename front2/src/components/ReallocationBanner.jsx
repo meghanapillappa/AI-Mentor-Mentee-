@@ -1,5 +1,4 @@
-export default function ReallocationBanner({ report, onClose }) {
-  if (!report) return null;
+export default function ReallocationBanner({ report, onClose, mentorOptions = [], onReassign }) {  if (!report) return null;
   const { removedMentor, moves } = report;
 
   // Group moves by destination mentor
@@ -36,6 +35,18 @@ export default function ReallocationBanner({ report, onClose }) {
                   </span>
                 ))}
               </div>
+              {onReassign && (
+              <div className="realloc-reassign">
+                <label>Move all {students.length} of these directly to:</label>
+                <select
+                  value=""
+                  onChange={(e) => { if (e.target.value) onReassign(students, mentorName, e.target.value); }}
+                >
+                  <option value="">Choose a mentor…</option>
+                  {mentorOptions.filter(m => m !== mentorName).map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+            )}
             </div>
           ))
         )}
