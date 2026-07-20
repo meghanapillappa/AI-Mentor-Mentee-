@@ -2,7 +2,7 @@
 
 A proportional-fair mentor/mentee matching tool: upload a mentor roster and
 a student database, run a stratified-balancing algorithm (by grade
-boundary, section, and CGPA), then add or remove mentors afterwards and
+boundary, section, and CGPA), then add,remove or exclude mentors afterwards and
 watch the engine rebalance incrementally instead of reshuffling everyone.
 
 The project has one Flask backend and **two** interchangeable frontends:
@@ -168,6 +168,10 @@ as a static site, and pointing at a non-local backend via
 | Results filtering/search        | `components/SearchFilterBar.jsx` + `lib/filterCohorts.js`     |
 | Summary metrics                 | `components/MacroMetrics.jsx`                                 |
 | Results display                 | `components/CohortsGrid.jsx` + `components/CohortCard.jsx`    |
+| Exclude mentors                 | `components/DatasetEditor.jsx` + `lib/api.js` +`lib/utils.js` |
+| Reassign mentees manually       | `components/ReallocationBanner.jsx`                           |
+
+
 
 ---
 
@@ -194,3 +198,9 @@ happens.
   timestamp, an expandable per-student detail table, and a one-click CSV
   download — independent of whatever the main results view currently
   shows.
+- **Mentor exclusion/Buffer Mentors** — Now mentors can be chosen to be 
+   excluded from being assigned mentees during first run or can be excluded
+   during reruns of the matching
+- **Direct Mapped to a different mentor** — when a mentor is removed now 
+   user can ensure that all the mentees from the prev mentor can be assigned
+   to a single mentor
