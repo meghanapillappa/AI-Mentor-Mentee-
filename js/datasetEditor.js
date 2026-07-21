@@ -8,8 +8,9 @@
 // algorithm expects.
 //
 // Depends on: state.js, utils.js, api.js.
-// Calls syncMentorChanges() (defined in matching.js) when the mentors table
-// changes — that's the one cross-module call in this file.
+// Calls queueMentorSync() (queue defined in state.js, wraps syncMentorChanges()
+// from matching.js) when the mentors table changes — that's the one
+// cross-module call in this file.
 // ---------------------------------------------------------------------------
 
 mentorsFileInput.addEventListener('change', async (e) => {
@@ -226,7 +227,7 @@ function renderDatasetEditor(container, key, data, getData, setData) {
         const d = getData();
         d[rIdx][col] = e.target.value;
         setData(d);
-        if (key === 'mentors') syncMentorChanges();
+        if (key === 'mentors') queueMentorSync();
       });
     });
 
@@ -238,7 +239,7 @@ function renderDatasetEditor(container, key, data, getData, setData) {
         setData(d);
         renderTable();
         verifyMatchReady();
-        if (key === 'mentors') syncMentorChanges();
+        if (key === 'mentors') queueMentorSync();
       });
     });
   }

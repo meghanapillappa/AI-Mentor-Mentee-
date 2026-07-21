@@ -21,6 +21,20 @@ async function parseJsonResponse(response) {
   return response.json();
 }
 
+// Cohorts are always meant to be an array of { mentor, students, ... }
+// objects. Some backend edge cases (observed: exactly one mentor left after
+// a removal) serialize the result as a single bare cohort object instead of
+// a one-element array. Everything downstream (renderCohorts, the
+// reallocation report, etc.) assumes an array, so normalize here — the one
+// place the backend contract is defined — rather than in every caller.
+function normalizeCohorts(data) {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.cohorts)) return data.cohorts; // wrapped shape
+  if (data && typeof data === 'object' && 'mentor' in data) return [data]; // single bare cohort
+  console.error('Unexpected cohorts payload shape from backend:', data);
+  return [];
+}
+
 /** POST /api/parse-file — upload a raw file, get back { columns, rows }. */
 async function apiParseFile(file) {
   const formData = new FormData();
@@ -113,7 +127,7 @@ async function apiRebalanceAdd(cohorts, newMentorName) {
   if (!response.ok || data.error) {
     return { ok: false, error: data.error || 'Unknown error' };
   }
-  return { ok: true, data };
+  return { ok: true, data: normalizeCohorts(data) };
 }
 
 /** POST /api/rebalance-remove — same { ok, data } shape as apiRebalanceAdd. */
@@ -133,5 +147,5 @@ async function apiRebalanceRemove(cohorts, removedMentorName, excludedMentors = 
   if (!response.ok || data.error) {
     return { ok: false, error: data.error || 'Unknown error' };
   }
-  return { ok: true, data };
+  return { ok: true, data: normalizeCohorts(data) };
 }

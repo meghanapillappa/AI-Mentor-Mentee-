@@ -27,9 +27,18 @@ function verifyMatchReady() {
   matchBtn.disabled = !(mentorsData.length > 0 && studentsData.length > 0);
 }
 
-export function extractExcludedMentors(mentorsData) {
-  return mentorsData
+function extractExcludedMentors(mentorsData) {  return mentorsData
     .filter(row => row._excluded)
     .map(row => getMentorName(row) ?? Object.values(row).find(v => v !== undefined && v !== null && v !== ''))
     .filter(Boolean);
+}
+
+// Trims (and coerces to string) a mentor/student name for comparison
+// purposes. Used anywhere we match a name captured at one point in time
+// (e.g. a snapshot) against a name coming back from the backend, since a
+// stray leading/trailing space would otherwise make a strict `===` fail
+// silently (the reallocation report would render but show "0 mentees
+// redistributed" instead of surfacing an error).
+function normalizeName(value) {
+  return (value === undefined || value === null) ? '' : String(value).trim();
 }

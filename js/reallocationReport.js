@@ -4,15 +4,30 @@
 // Feature 1: after a mentor is deleted from the mentors table, show exactly
 // which mentees moved and which new mentor picked each one up.
 //
-// Public entry point: buildReallocationReport(removedMentorName,
-// orphanedStudents, updatedCohorts) — called from matching.js right after a
-// mentor-removal rebalance succeeds.
+// Public entry point: buildReallocationReport(removals, updatedCohorts)
+// — called from matching.js right after a batch of mentor-removal
+// rebalances succeeds. `removals` is an array of
+// { mentor: <removed mentor name>, students: <their students before removal> }
+// — one entry per mentor removed in that sync pass, so removing several
+// mentors at once still produces a single combined report rather than
+// each removal clobbering the last.
 //
 // Depends on: state.js (reallocationBanner, reallocSummaryEl, reallocBodyEl,
 // reallocCloseBtn, reallocToggleBtn, lastReallocation).
 // ---------------------------------------------------------------------------
 
-function buildReallocationReport(removedMentorName, orphanedStudents, updatedCohorts) {
+function buildReallocationReport(removals, updatedCohorts) {
+  // Defensive: updatedCohorts should always be an array of cohort objects
+  // (api.js normalizes the backend response to guarantee this), but if a
+  // future backend change slips an unexpected shape through, fail soft here
+  // rather than throwing — a thrown error inside the mentor-sync queue would
+  // otherwise silently swallow the rest of the sync (see console for the
+  // "Unexpected cohorts payload shape" warning logged in api.js).
+  if (!Array.isArray(updatedCohorts)) {
+    console.error('buildReallocationReport: expected an array of cohorts, got:', updatedCohorts);
+    updatedCohorts = [];
+  }
+
   // Map each student's stable uid -> the mentor they ended up with, by
   // scanning the freshly-returned cohorts.
   const uidToNewMentor = new Map();
@@ -22,12 +37,21 @@ function buildReallocationReport(removedMentorName, orphanedStudents, updatedCoh
     });
   });
 
-  const moves = orphanedStudents.map(s => ({
-    student: s,
-    toMentor: uidToNewMentor.get(s.uid) || 'Unresolved'
-  }));
+  const moves = [];
+  removals.forEach(({ mentor, students }) => {
+    students.forEach(s => {
+      moves.push({
+        student: s,
+        fromMentor: mentor,
+        toMentor: uidToNewMentor.get(s.uid) || 'Unresolved'
+      });
+    });
+  });
 
-  lastReallocation = { removedMentor: removedMentorName, moves };
+  lastReallocation = {
+    removedMentors: removals.map(r => r.mentor),
+    moves
+  };
   renderReallocationReport(lastReallocation);
   reallocationBanner.style.display = 'block';
   reallocToggleBtn.style.display = 'inline-block';
@@ -35,10 +59,14 @@ function buildReallocationReport(removedMentorName, orphanedStudents, updatedCoh
 
 function renderReallocationReport(report) {
   if (!report) return;
-  const { removedMentor, moves } = report;
+  const { removedMentors, moves } = report;
+
+  const mentorLabel = removedMentors.length === 1
+    ? `Mentor "${removedMentors[0]}"`
+    : `Mentors ${removedMentors.map(m => `"${m}"`).join(', ')}`;
 
   reallocSummaryEl.textContent =
-    `Mentor "${removedMentor}" removed \u2014 ${moves.length} mentee(s) redistributed`;
+    `${mentorLabel} removed \u2014 ${moves.length} mentee(s) redistributed`;
 
   // Group moves by destination mentor
   const grouped = new Map();

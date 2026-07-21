@@ -25,7 +25,23 @@ let mentorSnapshot = new Map();
 let uidCounter = 0;
 
 // Reallocation report state (feature: mentor-removal report)
-let lastReallocation = null; // { removedMentor, moves: [{student, toMentor}] }
+let lastReallocation = null; // { removedMentors: [...], moves: [{student, fromMentor, toMentor}] }
+
+// Serializes calls to syncMentorChanges(). The mentors table fires a change
+// event per edit (add row, remove row, rename), and each handler kicks off
+// syncMentorChanges() without awaiting it. If a user removes two mentor rows
+// in quick succession, two overlapping calls would both read lastCohorts /
+// mentorSnapshot before either had finished writing back — the second call's
+// results (including its reallocation report) could silently clobber or race
+// the first's. Routing every call through this queue guarantees they run one
+// at a time, in order.
+let _mentorSyncChain = Promise.resolve();
+function queueMentorSync() {
+  _mentorSyncChain = _mentorSyncChain
+    .then(() => syncMentorChanges())
+    .catch(err => console.error('syncMentorChanges failed:', err));
+  return _mentorSyncChain;
+}
 
 function assignUids(rows) {
   rows.forEach(r => { if (!r._uid) r._uid = 'u' + (uidCounter++); });
