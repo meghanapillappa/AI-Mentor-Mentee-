@@ -169,7 +169,7 @@ as a static site, and pointing at a non-local backend via
 | Summary metrics                 | `components/MacroMetrics.jsx`                                 |
 | Results display                 | `components/CohortsGrid.jsx` + `components/CohortCard.jsx`    |
 | Exclude mentors                 | `components/DatasetEditor.jsx` + `lib/api.js` +`lib/utils.js` |
-| Reassign mentees manually       | `components/ReallocationBanner.jsx`                           |
+| Reassign mentees manually       | `components/ReallocationBanner.jsx`  + button to do it directly   |
 
 
 
