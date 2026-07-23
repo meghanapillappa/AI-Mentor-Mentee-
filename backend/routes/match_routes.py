@@ -14,6 +14,7 @@ request/response shape itself changes.
 
 import pandas as pd
 from flask import Blueprint, jsonify, request
+from auth import require_auth
 
 from services.matching_engine import (
     balance_matching,

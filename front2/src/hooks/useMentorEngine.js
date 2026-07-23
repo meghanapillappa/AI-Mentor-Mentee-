@@ -17,6 +17,25 @@ export function useMentorEngine() {
   const [lastReallocation, setLastReallocation] = useState(null);
   const [reallocationVisible, setReallocationVisible] = useState(false);
 
+  // Feature: when a mentor with mentees is removed, ask the user whether to
+  // auto-balance those mentees across everyone else, or send ALL of them
+  // directly to one chosen mentor instead.
+  const [pendingRemoval, setPendingRemoval] = useState(null); // { removedName, orphanedStudents, mentorOptions }
+  const pendingRemovalResolverRef = useRef(null);
+
+  const requestRemovalDecision = useCallback((removedName, orphanedStudents, mentorOptions) => {
+    return new Promise(resolve => {
+      pendingRemovalResolverRef.current = resolve;
+      setPendingRemoval({ removedName, orphanedStudents, mentorOptions });
+    });
+  }, []);
+
+  const resolvePendingRemoval = useCallback((decision) => {
+    pendingRemovalResolverRef.current?.(decision);
+    pendingRemovalResolverRef.current = null;
+    setPendingRemoval(null);
+  }, []);
+
   // Audit log state (feature: persistent history of every mentor add/remove,
   // with exactly which mentees moved and where — see components/AuditLog.jsx)
   const [auditLogEntries, setAuditLogEntries] = useState([]);
@@ -265,22 +284,59 @@ export function useMentorEngine() {
         }
       }
 
-      // 2. Removed mentors: redistribute only their students among the rest.
+      // 2. Removed mentors: ask how to redistribute their students, then
+      // either auto-balance (backend) or send them all to one mentor (local).
       const removedUids = [...snapshot.keys()].filter(uid => !currentMap.has(uid));
       for (const uid of removedUids) {
         const removedName = snapshot.get(uid);
-        // Snapshot exactly who this mentor had *before* we call the backend,
-        // so we can diff against the result and see where each one landed.
         const cohortBefore = cohorts.find(c => c.mentor === removedName);
         const orphanedStudents = cohortBefore ? [...cohortBefore.students] : [];
 
-         const result = await apiRebalanceRemove(cohorts, removedName, excludedMentors);
+        const mentorOptionsForDecision = cohorts
+          .map(c => c.mentor)
+          .filter(m => m !== removedName && !excludedNames.has(m));
+
+        let decision = { mode: 'auto' };
+        if (orphanedStudents.length > 0 && mentorOptionsForDecision.length > 0) {
+          decision = await requestRemovalDecision(removedName, orphanedStudents, mentorOptionsForDecision);
+        }
+
+        if (decision.mode === 'direct' && decision.targetMentor) {
+          // Send ALL of the removed mentor's mentees straight to one chosen
+          // mentor — no balancing algorithm involved.
+          const next = cohorts
+            .filter(c => c.mentor !== removedName)
+            .map(c => ({ ...c, students: [...c.students] }));
+          const target = next.find(c => c.mentor === decision.targetMentor);
+          target.students = [...target.students, ...orphanedStudents];
+          target.student_count = target.students.length;
+          target.average_gpa = target.students.length
+            ? Number((target.students.reduce((sum, s) => sum + s.CGPA, 0) / target.students.length).toFixed(3))
+            : 0;
+
+          cohorts = next;
+          snapshot.delete(uid);
+          if (!cancelled) {
+            buildReallocationReport(removedName, orphanedStudents, cohorts);
+            recordAuditEvent('remove', {
+              removed_mentor: removedName,
+              students_reassigned: orphanedStudents.length,
+              redistribution: [{
+                mentor: decision.targetMentor,
+                students_received: orphanedStudents.length,
+                students: orphanedStudents,
+              }],
+            });
+          }
+          continue;
+        }
+
+        // Auto-balance path (unchanged from before).
+        const result = await apiRebalanceRemove(cohorts, removedName, excludedMentors);
         if (!result.ok) {
           alert(`Could not remove mentor "${removedName}": ${result.error}`);
           continue;
         }
-        // result.data is { cohorts, removed_mentor, students_reassigned,
-        // redistribution } — `redistribution` feeds the audit log.
         cohorts = result.data.cohorts;
         snapshot.delete(uid);
         if (!cancelled) {
@@ -334,6 +390,7 @@ export function useMentorEngine() {
     combinedStatus,
     mentorsStatus,
     studentsStatus,
+    pendingRemoval,
     // actions
     handleMentorsFile,
     handleStudentsFile,
@@ -346,6 +403,6 @@ export function useMentorEngine() {
     setReallocationVisible,
     toggleMentorExcluded,
     reassignReallocationGroup,
-
+    resolvePendingRemoval,
   };
 }

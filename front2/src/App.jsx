@@ -8,11 +8,18 @@ import MacroMetrics from './components/MacroMetrics';
 import SearchFilterBar, { DEFAULT_FILTERS } from './components/SearchFilterBar';
 import CohortsGrid from './components/CohortsGrid';
 import { extractExcludedMentors } from './lib/utils';
+import RemovalDecisionModal from './components/RemovalDecisionModal';
+
+import { useAuth } from './hooks/useAuth';
+import LoginPage from './components/LoginPage';
+import UserHome from './components/UserHome';
+
 
 export default function App() {
+  const auth = useAuth();
+
   const engine = useMentorEngine();
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
-
   const { lastCohorts } = engine;
 
   // Mentor/section select options + view-limit slider bounds, ported from
@@ -49,6 +56,13 @@ export default function App() {
 
   const resultLabel = `${cards.length} mentor cohort(s) \u00b7 ${totalMatchedStudents} student(s) matched`;
 
+  if (!auth.isAuthenticated) {
+    return <LoginPage onLogin={auth.login} error={auth.loginError} loading={auth.loggingIn} />;
+  }
+  if (!auth.isAdmin) {
+    return <UserHome username={auth.session.username} onLogout={auth.logout} />;
+  }
+
   return (
     <div className="workspace">
       <header>
@@ -56,6 +70,7 @@ export default function App() {
           <h1>Mentor Distribution Engine</h1>
           <p>Proportional-fair stratification algorithm based on grade boundaries, sections, and global average GPA.</p>
         </div>
+        <button className="ghost-btn" onClick={auth.logout}>Log out</button>
       </header>
 
       <div className="control-grid">
@@ -126,6 +141,8 @@ export default function App() {
             cards={cards}
             hasRun={engine.hasRun}
           />
+
+          <RemovalDecisionModal pending={engine.pendingRemoval} onResolve={engine.resolvePendingRemoval} />
         </main>
       </div>
     </div>

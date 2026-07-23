@@ -750,3 +750,54 @@
     padding: 16px 20px;
     border-top: 1px solid var(--border-subtle);
   }
+  
+  .modal-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    max-width: 420px;
+    width: 90%;
+    color: var(--text-primary);
+  }
+  .modal-card h3 {
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+  .modal-card p {
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+  .modal-actions-column {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .modal-direct-row {
+    display: flex;
+    gap: 8px;
+  }
+  .modal-direct-row select {
+    flex: 1;
+  }
+
+  .login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  }
+  .login-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 32px;
+    width: 100%;
+    max-width: 340px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .login-card h1 { font-size: 20px; }
+  .login-subtitle { color: var(--text-muted); font-size: 13px; margin-bottom: 4px; }

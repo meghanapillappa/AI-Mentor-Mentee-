@@ -12,11 +12,14 @@ from flask_cors import CORS
 
 from routes.file_routes import file_bp
 from routes.match_routes import match_bp
+from routes.auth_routes import auth_bp
+
 
 app = Flask(__name__)
 # Enable CORS to allow your separate Frontend UI to communicate with this Backend
-CORS(app)
+CORS(app, expose_headers=["Authorization"], allow_headers=["Content-Type", "Authorization"])
 
+app.register_blueprint(auth_bp)
 app.register_blueprint(file_bp)
 app.register_blueprint(match_bp)
 
