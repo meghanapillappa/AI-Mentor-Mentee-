@@ -204,3 +204,135 @@ happens.
 - **Direct Mapped to a different mentor** — when a mentor is removed now 
    user can ensure that all the mentees from the prev mentor can be assigned
    to a single mentor
+
+- **Removal Decision Modal** — when removing a mentor, the UI now presents
+  a decision dialog allowing the user to choose how the removed mentor's
+  mentees should be handled. Users can either redistribute students using
+  the balancing algorithm or directly map the entire cohort to a selected
+  mentor before the rebalance is applied.
+
+---
+
+## 🔐 Authentication & Database
+
+The application now supports authenticated users and persistent storage
+using MongoDB.
+
+### Authentication
+
+- User registration and login
+- Passwords stored securely using hashing
+- Authenticated API endpoints for protected operations
+- Session/JWT-based authentication (depending on backend configuration)
+
+### Database
+
+MongoDB is used to persist:
+
+- User accounts
+- Uploaded datasets
+- Saved mentor distributions
+- Audit history
+- Project metadata
+
+By default the backend expects a MongoDB instance running locally.
+
+Example connection:
+
+```text
+mongodb://localhost:27018
+```
+
+You can also configure any remote MongoDB deployment by changing the
+connection string in your environment variables.
+
+---
+
+## ⚙️ Backend Setup
+
+### 1. Create a virtual environment
+
+```bash
+python -m venv .venv
+```
+
+Activate it.
+
+Windows:
+
+```bash
+.venv\Scripts\activate
+```
+
+macOS/Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+### 2. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Configure environment variables
+
+Create a `.env` file inside `backend/`.
+
+Example:
+
+```env
+MONGO_URI=mongodb://localhost:27018
+SECRET_KEY=your-secret-key
+JWT_SECRET_KEY=your-jwt-secret
+FLASK_ENV=development
+```
+
+Add any additional variables required by your deployment.
+
+### 4. Start MongoDB
+
+Example:
+
+```bash
+mongod --port 27018 --dbpath mongo-data
+```
+
+Wait until MongoDB reports:
+
+```text
+Waiting for connections
+```
+
+### 5. Start the backend
+
+```bash
+python app.py
+```
+
+The Flask server will start on:
+
+```
+http://127.0.0.1:5001
+```
+
+---
+
+## 📦 Backend Dependencies
+
+Dependencies are managed through `requirements.txt`.
+
+Install everything with:
+
+```bash
+pip install -r requirements.txt
+```
+
+If you add new Python packages:
+
+```bash
+pip freeze > requirements.txt
+```
+
+to regenerate the dependency list.
