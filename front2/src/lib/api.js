@@ -7,6 +7,19 @@
 
 import { API_BASE } from '../config';
 
+import { getStoredSession } from './auth';
+
+function authHeaders() {
+  const session = getStoredSession();
+  return session?.token ? { Authorization: `Bearer ${session.token}` } : {};
+}
+
+function handleAuthFailure(response) {
+  if (response.status === 401) {
+    sessionStorage.removeItem('mentor_app_session');
+    window.location.reload(); // App.jsx will see no session and show LoginPage
+  }
+}
 async function parseJsonResponse(response) {
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
@@ -29,6 +42,7 @@ export async function apiParseFile(file) {
   try {
     response = await fetch(`${API_BASE}/api/parse-file`, {
       method: 'POST',
+      headers: { ...authHeaders() },
       body: formData,
     });
   } catch (networkErr) {
@@ -50,7 +64,7 @@ export async function apiSaveFile(rows, format, filenameBase) {
   try {
     response = await fetch(`${API_BASE}/api/save-file`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ rows, format, filename: filenameBase, table_name: filenameBase }),
     });
   } catch (networkErr) {
@@ -79,7 +93,7 @@ export async function apiRunMatch(students, mentors, excludedMentors = []) {
   try {
     response = await fetch(`${API_BASE}/api/match`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ students, mentors, excluded_mentors: excludedMentors }),
     });
   } catch (networkErr) {
@@ -96,12 +110,12 @@ export async function apiRunMatch(students, mentors, excludedMentors = []) {
 }
 
 /** POST /api/rebalance-add — returns { ok, data|error } instead of throwing. */
-export async function apiRebalanceAdd(cohorts, newMentorName) {
+export async function apiRebalanceAdd(cohorts, newMentorName) { 
   let response;
   try {
     response = await fetch(`${API_BASE}/api/rebalance-add`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' ,...authHeaders() },
       body: JSON.stringify({ cohorts, new_mentor: newMentorName }),
     });
   } catch (networkErr) {
@@ -121,7 +135,7 @@ export async function apiRebalanceRemove(cohorts, removedMentorName, excludedMen
   try {
     response = await fetch(`${API_BASE}/api/rebalance-remove`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json',...authHeaders() },
       body: JSON.stringify({ cohorts, removed_mentor: removedMentorName, excluded_mentors: excludedMentors }),
     });
   } catch (networkErr) {

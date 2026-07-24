@@ -1,0 +1,50 @@
+# --- Python / backend ---
+backend/venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.Python
+build/
+dist/
+*.egg
+mongo-data/
+
+backend/mongo-data/
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Node / frontend (front2) ---
+front2/node_modules/
+node_modules/
+front2/dist/
+dist/
+front2/.vite/
+*.local
+
+# --- Logs ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# --- Uploaded / generated data (avoid committing real student/mentor data) ---
+backend/uploads/
+backend/exports/
+*.xlsx
+*.xls
+*.csv
+!sample_data/**
+
+

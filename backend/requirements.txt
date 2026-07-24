@@ -1,0 +1,15 @@
+# --- Core web framework ---
+Flask>=3.0.3
+flask-cors>=4.0.1
+Werkzeug>=3.0.3          # bundled with Flask, listed explicitly: used directly for password hashing (auth.py)
+
+# --- Data processing / matching engine ---
+pandas>=2.2.3
+numpy>=1.26.4
+
+# --- File parsing/export (services/file_parsing.py) ---
+openpyxl>=3.1.2          # .xlsx read/write engine used by df.to_excel(..., engine='openpyxl')
+
+# --- Auth / database (auth.py, db.py) ---
+pymongo>=4.8.0
+python-dotenv>=1.0.1      # loads MONGO_URI etc. from a local .env file

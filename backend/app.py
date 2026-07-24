@@ -13,6 +13,11 @@ from flask_cors import CORS
 from routes.file_routes import file_bp
 from routes.match_routes import match_bp
 from routes.auth_routes import auth_bp
+import db  # noqa: F401 — triggers index creation on startup
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 app = Flask(__name__)

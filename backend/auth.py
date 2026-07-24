@@ -1,36 +1,55 @@
 import secrets
+from datetime import datetime, timedelta, timezone
 from functools import wraps
+
 from flask import request, jsonify
+from werkzeug.security import generate_password_hash, check_password_hash
 
-# NOTE: in-memory auth for a small internal tool — not production-grade.
-# Sessions reset whenever the Flask process restarts.
-USERS = {
-    "admin": {"password": "changeme123", "role": "admin"},
-}
+from db import users_col, sessions_col
 
-SESSIONS = {}  # token -> {"username": ..., "role": ...}
+SESSION_TTL_HOURS = 12
+
+
+def create_user(username, password, role="user"):
+    """Used by the seed script / an admin panel to create accounts."""
+    if users_col.find_one({"username": username}):
+        raise ValueError(f"User '{username}' already exists")
+    users_col.insert_one({
+        "username": username,
+        "password_hash": generate_password_hash(password),
+        "role": role,
+        "created_at": datetime.now(timezone.utc),
+    })
 
 
 def login(username, password):
-    user = USERS.get(username)
-    if not user or user["password"] != password:
+    user = users_col.find_one({"username": username})
+    if not user or not check_password_hash(user["password_hash"], password):
         return None
+
     token = secrets.token_hex(24)
-    SESSIONS[token] = {"username": username, "role": user["role"]}
-    return {"token": token, "username": username, "role": user["role"]}
+    sessions_col.insert_one({
+        "token": token,
+        "username": user["username"],
+        "role": user["role"],
+        "expires_at": datetime.now(timezone.utc) + timedelta(hours=SESSION_TTL_HOURS),
+    })
+    return {"token": token, "username": user["username"], "role": user["role"]}
 
 
 def get_session(token):
-    return SESSIONS.get(token)
+    if not token:
+        return None
+    return sessions_col.find_one({"token": token}, {"_id": 0})
 
 
 def logout(token):
-    SESSIONS.pop(token, None)
+    sessions_col.delete_one({"token": token})
 
 
 def require_auth(role=None):
-    """Route decorator. Use @require_auth() for any logged-in user,
-    or @require_auth(role="admin") to restrict to admins."""
+    """Route decorator. @require_auth() for any logged-in user,
+    @require_auth(role="admin") to restrict to admins."""
     def decorator(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):

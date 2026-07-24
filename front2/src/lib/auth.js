@@ -4,7 +4,7 @@ const STORAGE_KEY = 'mentor_app_session';
 
 export function getStoredSession() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -12,11 +12,11 @@ export function getStoredSession() {
 }
 
 export function storeSession(session) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
 }
 
 export function clearSession() {
-  localStorage.removeItem(STORAGE_KEY);
+  sessionStorage.removeItem(STORAGE_KEY);
 }
 
 export async function apiLogin(username, password) {
