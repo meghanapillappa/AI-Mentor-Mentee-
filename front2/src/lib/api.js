@@ -148,3 +148,45 @@ export async function apiRebalanceRemove(cohorts, removedMentorName, excludedMen
   }
   return { ok: true, data };
 }
+
+
+/** POST /api/save-match-to-db — persists mentors/mentees to the DB with mentor/mentee roles.
+ * Returns { ok, data|error }. data.created_accounts is the list of brand-new logins to distribute. */
+export async function apiSaveMatchToDb(mentors, cohorts) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/save-match-to-db`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ mentors, cohorts }),
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to save the match.` };
+  }
+
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) {
+    return { ok: false, error: data.error || 'Unknown error' };
+  }
+  return { ok: true, data };
+}
+
+/** DELETE /api/directory-accounts — removes every mentor/mentee account (admins untouched). */
+export async function apiClearDirectoryAccounts() {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/directory-accounts`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ confirm: true }),
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to clear accounts.` };
+  }
+
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) {
+    return { ok: false, error: data.error || 'Unknown error' };
+  }
+  return { ok: true, data };
+}

@@ -1,4 +1,5 @@
 import AuditLog from './AuditLog';
+import NewCredentialsModal from './NewCredentialsModal';
 
 export default function Sidebar({ engine }) {
   return (
@@ -56,6 +57,27 @@ export default function Sidebar({ engine }) {
         onClick={engine.runMatch}
       >
         {engine.matching ? 'Running…' : 'Execute Balancing'}
+      </button>
+
+      <button
+        className="ghost-btn"
+        disabled={engine.lastCohorts.length === 0 || engine.savingToDb}
+        onClick={engine.saveMatchToDb}
+      >
+        {engine.savingToDb ? 'Saving…' : 'Save Match to Database'}
+      </button>
+      {engine.saveDbError && <div className="status-line err">{engine.saveDbError}</div>}
+
+      <button
+        className="ghost-btn"
+        disabled={engine.clearingDb}
+        onClick={() => {
+          if (window.confirm('This permanently deletes every mentor and mentee account. Admin accounts are unaffected. Continue?')) {
+            engine.clearDirectoryAccounts();
+          }
+        }}
+      >
+        {engine.clearingDb ? 'Clearing…' : 'Clear Mentor/Mentee Accounts'}
       </button>
 
       <AuditLog entries={engine.auditLogEntries} />

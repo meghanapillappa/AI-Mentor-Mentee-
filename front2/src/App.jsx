@@ -9,6 +9,7 @@ import SearchFilterBar, { DEFAULT_FILTERS } from './components/SearchFilterBar';
 import CohortsGrid from './components/CohortsGrid';
 import { extractExcludedMentors } from './lib/utils';
 import RemovalDecisionModal from './components/RemovalDecisionModal';
+import NewCredentialsModal from './components/NewCredentialsModal';
 
 import { useAuth } from './hooks/useAuth';
 import LoginPage from './components/LoginPage';
@@ -143,6 +144,7 @@ export default function App() {
           />
 
           <RemovalDecisionModal pending={engine.pendingRemoval} onResolve={engine.resolvePendingRemoval} />
+          <NewCredentialsModal result={engine.newCredentials} onClose={() => engine.setNewCredentials(null)} />
         </main>
       </div>
     </div>
