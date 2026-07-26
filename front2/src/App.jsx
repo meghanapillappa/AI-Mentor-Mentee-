@@ -13,6 +13,8 @@ import RemovalDecisionModal from './components/RemovalDecisionModal';
 import { useAuth } from './hooks/useAuth';
 import LoginPage from './components/LoginPage';
 import UserHome from './components/UserHome';
+import MentorHome from './components/MentorHome';
+import { apiGetMyCohort } from './lib/api';
 
 
 export default function App() {
@@ -21,6 +23,28 @@ export default function App() {
   const engine = useMentorEngine();
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const { lastCohorts } = engine;
+
+  // Mentor-only: fetch just this mentor's own cohort from the backend
+  // (/api/my-cohort), independent of the admin's local `lastCohorts` state
+  // — a mentor logs in from their own session and never runs a match
+  // themselves, so this is the only way they see real data.
+  const [mentorCohort, setMentorCohort] = useState(null);
+  const [mentorCohortError, setMentorCohortError] = useState('');
+
+  useEffect(() => {
+    if (!auth.isAuthenticated || auth.isAdmin || auth.session?.role !== 'mentor') return;
+    let cancelled = false;
+    (async () => {
+      const result = await apiGetMyCohort();
+      if (cancelled) return;
+      if (result.ok) {
+        setMentorCohort(result.cohort);
+      } else {
+        setMentorCohortError(result.error);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [auth.isAuthenticated, auth.isAdmin, auth.session?.role]);
 
   // Mentor/section select options + view-limit slider bounds, ported from
   // filters.js populateFilterOptions().
@@ -60,6 +84,16 @@ export default function App() {
     return <LoginPage onLogin={auth.login} error={auth.loginError} loading={auth.loggingIn} />;
   }
   if (!auth.isAdmin) {
+    if (auth.session.role === 'mentor') {
+      return (
+        <MentorHome
+          username={auth.session.username}
+          cohort={mentorCohort}
+          onLogout={auth.logout}
+        />
+      );
+    }
+    // Mentee accounts: intentionally on hold, unchanged.
     return <UserHome username={auth.session.username} onLogout={auth.logout} />;
   }
 
