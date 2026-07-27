@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { apiParseFile, apiRebalanceAdd, apiRebalanceRemove, apiRunMatch, apiSaveFile } from '../lib/api';
+import { apiParseFile, apiRebalanceAdd, apiRebalanceRemove, apiRunMatch, apiSaveFile, apiSaveMatchToDb, apiClearDirectoryAccounts } from '../lib/api';
 import { buildMentorNameMap, extractMentorsList, extractStudentsList, stripInternalFields,extractExcludedMentors } from '../lib/utils';
 import { buildAuditEvent } from '../lib/auditLog';
 
@@ -16,6 +16,11 @@ export function useMentorEngine() {
   const [lastCohorts, setLastCohorts] = useState([]);
   const [lastReallocation, setLastReallocation] = useState(null);
   const [reallocationVisible, setReallocationVisible] = useState(false);
+  const [newCredentials, setNewCredentials] = useState(null); // { accounts, mentorsSaved, menteesSaved } | null
+  const [savingToDb, setSavingToDb] = useState(false);
+  const [saveDbError, setSaveDbError] = useState('');
+  const [clearingDb, setClearingDb] = useState(false);
+
 
   // Feature: when a mentor with mentees is removed, ask the user whether to
   // auto-balance those mentees across everyone else, or send ALL of them
@@ -158,6 +163,41 @@ export function useMentorEngine() {
       alert(`Save failed: ${err.message}`);
     }
   }, []);
+
+  const saveMatchToDb = useCallback(async () => {
+    if (lastCohorts.length === 0) return;
+    setSavingToDb(true);
+    setSaveDbError('');
+    try {
+      const result = await apiSaveMatchToDb(stripInternalFields(mentorsData), lastCohorts);
+      if (!result.ok) {
+        setSaveDbError(result.error);
+        return;
+      }
+      setNewCredentials({
+        accounts: result.data.created_accounts,
+        mentorsSaved: result.data.mentors_saved,
+        menteesSaved: result.data.mentees_saved,
+      });
+    } finally {
+      setSavingToDb(false);
+    }
+  }, [mentorsData, lastCohorts]);
+
+  const clearDirectoryAccounts = useCallback(async () => {
+    setClearingDb(true);
+    try {
+      const result = await apiClearDirectoryAccounts();
+      if (!result.ok) {
+        alert(`Could not clear accounts: ${result.error}`);
+        return;
+      }
+      alert(`Removed ${result.data.deleted_count} mentor/mentee account(s).`);
+    } finally {
+      setClearingDb(false);
+    }
+  }, []);
+
 
   // -------------------------------------------------------------------------
   // Reallocation report (feature: mentor-removal report)
@@ -391,7 +431,14 @@ export function useMentorEngine() {
     mentorsStatus,
     studentsStatus,
     pendingRemoval,
+    newCredentials,
+    savingToDb,
+    saveDbError,
+    clearingDb,
     // actions
+    clearDirectoryAccounts,
+    saveMatchToDb,
+    setNewCredentials,
     handleMentorsFile,
     handleStudentsFile,
     handleCombinedFile,

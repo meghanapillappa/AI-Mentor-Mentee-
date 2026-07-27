@@ -15,6 +15,8 @@ from routes.match_routes import match_bp
 from routes.auth_routes import auth_bp
 import db  # noqa: F401 — triggers index creation on startup
 
+from routes.save_directory_routes import save_directory_bp
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -27,6 +29,7 @@ CORS(app, expose_headers=["Authorization"], allow_headers=["Content-Type", "Auth
 app.register_blueprint(auth_bp)
 app.register_blueprint(file_bp)
 app.register_blueprint(match_bp)
+app.register_blueprint(save_directory_bp)
 
 
 if __name__ == '__main__':
