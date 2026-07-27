@@ -110,7 +110,7 @@ export async function apiRunMatch(students, mentors, excludedMentors = []) {
 }
 
 /** POST /api/rebalance-add — returns { ok, data|error } instead of throwing. */
-export async function apiRebalanceAdd(cohorts, newMentorName) { 
+export async function apiRebalanceAdd(cohorts, newMentorName) {
   let response;
   try {
     response = await fetch(`${API_BASE}/api/rebalance-add`, {
@@ -149,6 +149,24 @@ export async function apiRebalanceRemove(cohorts, removedMentorName, excludedMen
   return { ok: true, data };
 }
 
+/** GET /api/my-cohort — mentor fetches their own published cohort. Returns { ok, cohort|error }. */
+export async function apiGetMyCohort() {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/my-cohort`, {
+      method: 'GET',
+      headers: { ...authHeaders() },
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to fetch your cohort.` };
+  }
+
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) {
+    return { ok: false, error: data.error || 'Unknown error' };
+  }
+  return { ok: true, cohort: data.cohort };
+}
 
 /** POST /api/save-match-to-db — persists mentors/mentees to the DB with mentor/mentee roles.
  * Returns { ok, data|error }. data.created_accounts is the list of brand-new logins to distribute. */

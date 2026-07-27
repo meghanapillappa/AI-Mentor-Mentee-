@@ -4,3 +4,4 @@ dist
 *.local
 __pycache__
 *pyc
+backend/mongo-data.zip
