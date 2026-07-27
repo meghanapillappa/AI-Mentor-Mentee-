@@ -283,3 +283,99 @@ export async function apiDeleteWorkspace(dbName) {
   if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
   return { ok: true, data };
 }
+
+export async function apiListDeadlines(workspaceDbName) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/deadlines?workspace=${encodeURIComponent(workspaceDbName)}`, {
+      headers: { ...authHeaders() },
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to load deadlines.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, data: data.deadlines };
+}
+
+/** POST /api/deadlines — create/update a session's deadline. */
+export async function apiSetDeadline(workspaceDbName, sessionNumber, deadline) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/deadlines`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ workspace: workspaceDbName, session_number: sessionNumber, deadline }),
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to save the deadline.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, data };
+}
+
+/** DELETE /api/deadlines/:sessionNumber?workspace=... */
+export async function apiDeleteDeadline(workspaceDbName, sessionNumber) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/deadlines/${sessionNumber}?workspace=${encodeURIComponent(workspaceDbName)}`, {
+      method: 'DELETE',
+      headers: { ...authHeaders() },
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to delete the deadline.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, data };
+}
+
+/** POST /api/deadlines/extend — grant a mentor a past-deadline exception for one session. */
+export async function apiGrantExtension(workspaceDbName, sessionNumber, mentorUsername) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/deadlines/extend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ workspace: workspaceDbName, session_number: sessionNumber, mentor_username: mentorUsername }),
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to grant the extension.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, data };
+}
+
+/** DELETE /api/deadlines/extend — revoke a previously granted extension. */
+export async function apiRevokeExtension(workspaceDbName, sessionNumber, mentorUsername) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/deadlines/extend`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ workspace: workspaceDbName, session_number: sessionNumber, mentor_username: mentorUsername }),
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to revoke the extension.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, data };
+}
+
+/** GET /api/my-deadlines — the logged-in mentor/mentee's own workspace deadlines, with days-left computed. */
+export async function apiGetMyDeadlines() {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/my-deadlines`, {
+      headers: { ...authHeaders() },
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to load deadlines.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, deadlines: data.deadlines };
+}

@@ -977,3 +977,17 @@
     opacity: 0.6;
     cursor: not-allowed;
   }
+
+  .deadline-chip-ok {
+    background: rgba(16, 185, 129, 0.10);
+    border-color: rgba(16, 185, 129, 0.25);
+  }
+  .deadline-chip-warn {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.35);
+  }
+  .deadline-chip-err {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #F87171;
+  }

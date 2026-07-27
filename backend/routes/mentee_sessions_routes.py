@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, g
 
 from auth import require_auth
+from routes.deadline_routes import check_session_deadline
 
 mentee_sessions_bp = Blueprint("mentee_sessions_bp", __name__)
 

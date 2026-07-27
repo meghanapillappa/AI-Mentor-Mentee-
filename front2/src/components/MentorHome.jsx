@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import MenteeDetailModal from './MenteeDetailModal';
+import DeadlineBanner from './DeadlineBanner';
 
 export default function MentorHome({ username, cohort, onLogout }) {
   const [students, setStudents] = useState(cohort?.students || []);
@@ -31,6 +32,7 @@ export default function MentorHome({ username, cohort, onLogout }) {
               : 'No mentees assigned to you yet.'}
           </p>
         </div>
+          <DeadlineBanner />
         <button className="ghost-btn" onClick={onLogout}>Log out</button>
       </header>
       {!cohort ? (

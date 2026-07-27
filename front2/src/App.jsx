@@ -17,6 +17,7 @@ import UserHome from './components/UserHome';
 import MentorHome from './components/MentorHome';
 import WorkspaceSelector from './components/WorkspaceSelector';
 import { apiGetMyCohort } from './lib/api';
+import DeadlinesPage from './components/DeadlinesPage';
 
 export default function App() {
   const auth = useAuth();
@@ -25,6 +26,7 @@ export default function App() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const { lastCohorts } = engine;
   const [activeWorkspace, setActiveWorkspace] = useState(null);
+  const [view, setView] = useState('main'); 
 
   // Mentor-only: fetch just this mentor's own cohort from the backend
   // (/api/my-cohort), independent of the admin's local `lastCohorts` state
@@ -95,8 +97,19 @@ export default function App() {
         />
       );
     }
+    
     // Mentee accounts: intentionally on hold, unchanged.
     return <UserHome username={auth.session.username} onLogout={auth.logout} />;
+  }
+  
+  if (view === 'deadlines') {
+    return (
+       <DeadlinesPage
+       activeWorkspace={activeWorkspace}
+       setActiveWorkspace={setActiveWorkspace}
+        onBack={() => setView('main')}
+      />
+    );
   }
 
   return (
@@ -107,6 +120,10 @@ export default function App() {
           <p>Proportional-fair stratification algorithm based on grade boundaries, sections, and global average GPA.</p>
         </div>
         <button className="ghost-btn" onClick={auth.logout}>Log out</button>
+
+        <button className="ghost-btn" onClick={() => setView('deadlines')}>
+           Manage Deadlines
+        </button>
       </header>
 
       <div className="control-grid">
