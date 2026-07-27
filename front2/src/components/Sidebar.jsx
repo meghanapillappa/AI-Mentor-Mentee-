@@ -1,7 +1,8 @@
 import AuditLog from './AuditLog';
 import NewCredentialsModal from './NewCredentialsModal';
+import WorkspaceSelector from './WorkspaceSelector';
 
-export default function Sidebar({ engine }) {
+export default function Sidebar({ engine,activeWorkspace, setActiveWorkspace }) {
   return (
     <aside className="sidebar-panel">
       <div className="panel-section-title">Configuration</div>
@@ -61,24 +62,26 @@ export default function Sidebar({ engine }) {
 
       <button
         className="ghost-btn"
-        disabled={engine.lastCohorts.length === 0 || engine.savingToDb}
-        onClick={engine.saveMatchToDb}
+        disabled={engine.lastCohorts.length === 0 || engine.savingToDb || !activeWorkspace}
+        onClick={() => engine.saveMatchToDb(activeWorkspace?.db_name)}
       >
-        {engine.savingToDb ? 'Saving…' : 'Save Match to Database'}
+        {engine.savingToDb ? 'Saving…' : `Save Match to "${activeWorkspace?.name || '…'}"`}
       </button>
       {engine.saveDbError && <div className="status-line err">{engine.saveDbError}</div>}
 
       <button
         className="ghost-btn"
-        disabled={engine.clearingDb}
+        disabled={engine.clearingDb || !activeWorkspace}
         onClick={() => {
-          if (window.confirm('This permanently deletes every mentor and mentee account. Admin accounts are unaffected. Continue?')) {
-            engine.clearDirectoryAccounts();
+          if (window.confirm(`Delete every mentor/mentee account in "${activeWorkspace?.name}"? Admin accounts are unaffected.`)) {
+            engine.clearDirectoryAccounts(activeWorkspace?.db_name);
           }
         }}
       >
-        {engine.clearingDb ? 'Clearing…' : 'Clear Mentor/Mentee Accounts'}
+        {engine.clearingDb ? 'Clearing…' : `Clear "${activeWorkspace?.name || '…'}"`}
       </button>
+
+      <WorkspaceSelector activeWorkspace={activeWorkspace} onSelect={setActiveWorkspace} />
 
       <AuditLog entries={engine.auditLogEntries} />
     </aside>
