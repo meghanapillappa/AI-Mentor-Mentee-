@@ -1,31 +1,25 @@
-// ---------------------------------------------------------------------------
-// MentorHome.jsx
-//
-// Mentor-facing landing page. Shows exactly one cohort: the mentor's own.
-// This is intentionally NOT CohortsGrid/CohortCard reused as-is — those are
-// built for the admin's multi-mentor, filterable view (search, view-limit,
-// "MATCH" badges, etc). A mentor only ever sees their own single roster, so
-// none of that chrome applies. This component borrows the same table markup
-// and CSS classes (roster-table, grade-pill, col-mono, col-gpa) so it stays
-// visually consistent with the admin view for free.
-//
-// Props:
-//   username  - display name for the header (same pattern as UserHome)
-//   cohort    - { mentor, student_count, average_gpa, students: [...] } | null
-//               null/undefined means no match has been run yet, or this
-//               mentor has no assignment — render an empty state, don't crash.
-//   onLogout  - same as UserHome
-//
-// NOTE ON WIRING THIS UP (not part of this file, but required for it to
-// receive real data): App.jsx needs to resolve which single cohort belongs
-// to the logged-in mentor and pass just that one object in as `cohort`. That
-// resolution depends on what your /api/login or /api/me session shape
-// actually contains (a mentor_id/mentor_name that matches cohort.mentor).
-// This component doesn't care how that happens — it just renders whatever
-// single cohort it's handed.
-// ---------------------------------------------------------------------------
+import { useEffect, useState } from 'react';
+import MenteeDetailModal from './MenteeDetailModal';
 
 export default function MentorHome({ username, cohort, onLogout }) {
+  const [students, setStudents] = useState(cohort?.students || []);
+  const [selectedMentee, setSelectedMentee] = useState(null);
+
+  useEffect(() => {
+    setStudents(cohort?.students || []);
+  }, [cohort]);
+
+  function handleSessionAdded(newSession) {
+    setStudents(prev => prev.map(s =>
+      s.uid === selectedMentee.uid
+        ? { ...s, sessions: [...(s.sessions || []), newSession] }
+        : s
+    ));
+    setSelectedMentee(prev => prev
+      ? { ...prev, sessions: [...(prev.sessions || []), newSession] }
+      : prev);
+  }
+
   return (
     <div className="workspace">
       <header>
@@ -39,7 +33,6 @@ export default function MentorHome({ username, cohort, onLogout }) {
         </div>
         <button className="ghost-btn" onClick={onLogout}>Log out</button>
       </header>
-
       {!cohort ? (
         <div className="roster-grid">
           <p className="empty-note">
@@ -64,13 +57,15 @@ export default function MentorHome({ username, cohort, onLogout }) {
                   <th>Assigned Grade</th>
                   <th>Section</th>
                   <th style={{ textAlign: 'right' }}>CGPA</th>
+                  <th style={{ textAlign: 'right' }}>Sessions</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
-                {cohort.students.length === 0 ? (
-                  <tr><td colSpan={4} className="empty-note">No mentees in this cohort.</td></tr>
+                {students.length === 0 ? (
+                  <tr><td colSpan={6} className="empty-note">No mentees in this cohort.</td></tr>
                 ) : (
-                  cohort.students.map(s => (
+                  students.map(s => (
                     <tr key={s.uid ?? s.name}>
                       <td><strong>{s.name}</strong></td>
                       <td className="col-mono">
@@ -78,6 +73,14 @@ export default function MentorHome({ username, cohort, onLogout }) {
                       </td>
                       <td className="col-mono">Section {s.Section}</td>
                       <td className="col-mono col-gpa">{s.CGPA.toFixed(2)}</td>
+                      <td className="col-mono" style={{ textAlign: 'right' }}>
+                        {(s.sessions || []).length}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button className="ghost-btn" onClick={() => setSelectedMentee(s)}>
+                          View / Add Notes
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -85,6 +88,14 @@ export default function MentorHome({ username, cohort, onLogout }) {
             </table>
           </div>
         </div>
+      )}
+
+      {selectedMentee && (
+        <MenteeDetailModal
+          mentee={selectedMentee}
+          onClose={() => setSelectedMentee(null)}
+          onSessionAdded={handleSessionAdded}
+        />
       )}
     </div>
   );

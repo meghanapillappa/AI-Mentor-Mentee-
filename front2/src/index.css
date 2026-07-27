@@ -750,7 +750,7 @@
     padding: 16px 20px;
     border-top: 1px solid var(--border-subtle);
   }
-  
+
   .modal-card {
     background: var(--bg-card);
     border: 1px solid var(--border-subtle);
@@ -801,3 +801,179 @@
   }
   .login-card h1 { font-size: 20px; }
   .login-subtitle { color: var(--text-muted); font-size: 13px; margin-bottom: 4px; }
+
+  .mentee-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 24px;
+  }
+
+  .mentee-modal-panel {
+    background: #0f172a;
+    color: #e2e8f0;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 900px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 24px;
+  }
+
+  .mentee-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #1e293b;
+  }
+
+  .mentee-modal-header h2 {
+    color: #f8fafc;
+    margin: 0;
+  }
+
+  .mentee-modal-meta {
+    color: #94a3b8;
+    margin-top: 4px;
+  }
+
+  .mentee-modal-header .ghost-btn {
+    color: #60a5fa;
+    background: none;
+    border: 1px solid #3b82f6;
+    border-radius: 6px;
+    padding: 6px 14px;
+    cursor: pointer;
+  }
+
+  .mentee-modal-header .ghost-btn:hover {
+    background: rgba(59, 130, 246, 0.1);
+  }
+
+  .mentee-modal-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 700px) {
+    .mentee-modal-body {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .mentee-modal-history h3,
+  .mentee-modal-form h3 {
+    color: #f8fafc;
+    margin-top: 0;
+    margin-bottom: 12px;
+  }
+
+  .mentee-modal-history .empty-note {
+    color: #64748b;
+  }
+
+  .session-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 500px;
+    overflow-y: auto;
+  }
+
+  .session-card {
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 12px;
+    background: #1e293b;
+    color: #e2e8f0;
+  }
+
+  .session-card-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    color: #f8fafc;
+  }
+
+  .session-card p {
+    color: #cbd5e1;
+    margin: 4px 0;
+  }
+
+  .mentee-modal-form form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .mentee-modal-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #e2e8f0;
+  }
+
+  .mentee-modal-form input,
+  .mentee-modal-form textarea {
+    padding: 8px;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    font: inherit;
+    background: #1e293b;
+    color: #f8fafc;
+  }
+
+  .mentee-modal-form input:focus,
+  .mentee-modal-form textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+  }
+
+  .mentee-modal-form input::placeholder,
+  .mentee-modal-form textarea::placeholder {
+    color: #64748b;
+  }
+
+  .form-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  .form-row label {
+    flex: 1;
+  }
+
+  .form-error {
+    color: #f87171;
+    font-size: 14px;
+  }
+
+  .mentee-modal-form .primary-btn {
+    background: #3b82f6;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  .mentee-modal-form .primary-btn:hover:not(:disabled) {
+    background: #2563eb;
+  }
+
+  .mentee-modal-form .primary-btn:disabled {
+    background: #1e40af;
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
