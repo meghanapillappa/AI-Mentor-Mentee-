@@ -170,13 +170,13 @@ export async function apiGetMyCohort() {
 
 /** POST /api/save-match-to-db — persists mentors/mentees to the DB with mentor/mentee roles.
  * Returns { ok, data|error }. data.created_accounts is the list of brand-new logins to distribute. */
-export async function apiSaveMatchToDb(mentors, cohorts) {
+export async function apiSaveMatchToDb(mentors, cohorts, workspaceDbName) {
   let response;
   try {
     response = await fetch(`${API_BASE}/api/save-match-to-db`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ mentors, cohorts }),
+      body: JSON.stringify({ mentors, cohorts, workspace: workspaceDbName }),
     });
   } catch (networkErr) {
     return { ok: false, error: `Could not connect to ${API_BASE} to save the match.` };
@@ -190,13 +190,13 @@ export async function apiSaveMatchToDb(mentors, cohorts) {
 }
 
 /** DELETE /api/directory-accounts — removes every mentor/mentee account (admins untouched). */
-export async function apiClearDirectoryAccounts() {
+export async function apiClearDirectoryAccounts(workspaceDbName) {
   let response;
   try {
     response = await fetch(`${API_BASE}/api/directory-accounts`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ confirm: true }),
+      body: JSON.stringify({ confirm: true, workspace: workspaceDbName }),
     });
   } catch (networkErr) {
     return { ok: false, error: `Could not connect to ${API_BASE} to clear accounts.` };
@@ -226,5 +226,51 @@ export async function apiAddMenteeSession(menteeUsername, sessionData) {
   if (!response.ok || data.error) {
     return { ok: false, error: data.error || 'Unknown error' };
   }
+/** GET /api/workspaces — list all workspace databases with mentor/mentee counts. */
+export async function apiListWorkspaces() {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/workspaces`, {
+      headers: { ...authHeaders() },
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to list workspaces.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, data: data.workspaces };
+}
+
+/** POST /api/workspaces — create (or fetch, if the name already exists) a workspace. */
+export async function apiCreateWorkspace(name) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/workspaces`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ name }),
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to create the workspace.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, data };
+}
+
+/** DELETE /api/workspaces/:dbName — permanently drops a workspace's entire database. */
+export async function apiDeleteWorkspace(dbName) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(dbName)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ confirm: true }),
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to delete the workspace.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
   return { ok: true, data };
 }

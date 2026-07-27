@@ -164,12 +164,13 @@ export function useMentorEngine() {
     }
   }, []);
 
-  const saveMatchToDb = useCallback(async () => {
+  const saveMatchToDb = useCallback(async (workspaceDbName) => {
     if (lastCohorts.length === 0) return;
+    if (!workspaceDbName) { setSaveDbError('Select or create a database first.'); return; }
     setSavingToDb(true);
     setSaveDbError('');
     try {
-      const result = await apiSaveMatchToDb(stripInternalFields(mentorsData), lastCohorts);
+      const result = await apiSaveMatchToDb(stripInternalFields(mentorsData), lastCohorts, workspaceDbName);
       if (!result.ok) {
         setSaveDbError(result.error);
         return;
@@ -184,10 +185,11 @@ export function useMentorEngine() {
     }
   }, [mentorsData, lastCohorts]);
 
-  const clearDirectoryAccounts = useCallback(async () => {
+  const clearDirectoryAccounts = useCallback(async (workspaceDbName) => {
+    if (!workspaceDbName) { alert('Select a database first.'); return; }
     setClearingDb(true);
     try {
-      const result = await apiClearDirectoryAccounts();
+      const result = await apiClearDirectoryAccounts(workspaceDbName);  
       if (!result.ok) {
         alert(`Could not clear accounts: ${result.error}`);
         return;

@@ -15,8 +15,7 @@ import { useAuth } from './hooks/useAuth';
 import LoginPage from './components/LoginPage';
 import UserHome from './components/UserHome';
 import MentorHome from './components/MentorHome';
-import { apiGetMyCohort } from './lib/api';
-
+import WorkspaceSelector from './components/WorkspaceSelector';
 
 export default function App() {
   const auth = useAuth();
@@ -24,6 +23,7 @@ export default function App() {
   const engine = useMentorEngine();
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const { lastCohorts } = engine;
+  const [activeWorkspace, setActiveWorkspace] = useState(null);
 
   // Mentor-only: fetch just this mentor's own cohort from the backend
   // (/api/my-cohort), independent of the admin's local `lastCohorts` state
@@ -36,7 +36,7 @@ export default function App() {
     if (!auth.isAuthenticated || auth.isAdmin || auth.session?.role !== 'mentor') return;
     let cancelled = false;
     (async () => {
-      const result = await apiGetMyCohort();
+      const result = await filterCohorts();
       if (cancelled) return;
       if (result.ok) {
         setMentorCohort(result.cohort);
@@ -109,7 +109,10 @@ export default function App() {
       </header>
 
       <div className="control-grid">
-        <Sidebar engine={engine} />
+        <Sidebar engine={engine}
+        activeWorkspace={activeWorkspace}
+        setActiveWorkspace={setActiveWorkspace}
+        />
 
         <main>
           <DatasetEditor

@@ -1,4 +1,3 @@
-
 """
 routes/save_directory_routes.py
 
@@ -78,7 +77,10 @@ def save_match_to_db_route():
         data = request.get_json(silent=True) or {}
         mentors = data.get("mentors", [])
         cohorts = data.get("cohorts", [])
+        workspace_db_name = data.get("workspace")
 
+        if not workspace_db_name:
+            return jsonify({"error": "workspace is required — create or select one first."}), 400
         if not cohorts:
             return jsonify({"error": "No match results to save. Run a match first."}), 400
 
@@ -104,7 +106,7 @@ def save_match_to_db_route():
                 student_profile = {k: v for k, v in student.items() if k != "uid"}
                 student_profile["assigned_mentor"] = mentor_name
 
-                result = upsert_directory_user(student_username, "mentee", student_profile)
+                result = upsert_directory_user(workspace_db_name, student_username, "mentee", student_profile)
                 mentees_saved += 1
                 if result["created"]:
                     created_accounts.append({**result, "name": _display_name(student, student_username)})
@@ -115,7 +117,7 @@ def save_match_to_db_route():
             mentor_profile["assigned_mentees"] = student_ids
             mentor_profile["mentee_count"] = cohort.get("student_count", len(student_ids))
 
-            result = upsert_directory_user(mentor_username, "mentor", mentor_profile)
+            result = upsert_directory_user(workspace_db_name, mentor_username, "mentor", mentor_profile)
             mentors_saved += 1
             if result["created"]:
                 created_accounts.append({**result, "name": _display_name(mentor_row, mentor_username)})
@@ -137,13 +139,17 @@ def clear_directory_accounts_route():
     Body (optional): { "confirm": true } — required to actually proceed.
     """
     try:
-        from db import users_col
+        from db import get_workspace_db
 
         data = request.get_json(silent=True) or {}
+        workspace_db_name = data.get("workspace")
+        if not workspace_db_name:
+            return jsonify({"error": "workspace is required"}), 400
         if not data.get("confirm"):
             return jsonify({"error": "Pass { confirm: true } to proceed with deletion."}), 400
 
-        result = users_col.delete_many({"role": {"$in": ["mentor", "mentee"]}})
+        directory_col = get_workspace_db(workspace_db_name)["directory"]
+        result = directory_col.delete_many({"role": {"$in": ["mentor", "mentee"]}})
         return jsonify({"deleted_count": result.deleted_count})
 
     except Exception as e:
