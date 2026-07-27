@@ -16,6 +16,7 @@ import LoginPage from './components/LoginPage';
 import UserHome from './components/UserHome';
 import MentorHome from './components/MentorHome';
 import WorkspaceSelector from './components/WorkspaceSelector';
+import { apiGetMyCohort } from './lib/api';
 
 export default function App() {
   const auth = useAuth();
@@ -36,7 +37,7 @@ export default function App() {
     if (!auth.isAuthenticated || auth.isAdmin || auth.session?.role !== 'mentor') return;
     let cancelled = false;
     (async () => {
-      const result = await filterCohorts();
+      const result = await apiGetMyCohort();
       if (cancelled) return;
       if (result.ok) {
         setMentorCohort(result.cohort);

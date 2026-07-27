@@ -16,7 +16,6 @@ request/response shape itself changes.
 import pandas as pd
 from flask import Blueprint, jsonify, request, g
 from auth import require_auth
-from db import users_col
 
 from services.matching_engine import (
     balance_matching,
@@ -134,6 +133,7 @@ def rebalance_remove_route():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+    
 
 @match_bp.route('/api/my-cohort', methods=['GET'])
 @require_auth(role="mentor")
@@ -142,9 +142,22 @@ def my_cohort_route():
     Returns the requesting mentor's own cohort, built from their user
     profile (saved by /api/save-match-to-db), resolving each assigned
     mentee username back to their own saved profile data.
+
+    Mentor/mentee accounts live in their own workspace's "directory"
+    collection (not the control database's users_col) — the session
+    remembers which workspace this account came from, set at login time.
     """
+    from db import get_workspace_db
+
     username = g.session["username"]
-    mentor_doc = users_col.find_one({"username": username, "role": "mentor"})
+    workspace_db_name = g.session.get("workspace_db")
+
+    if not workspace_db_name:
+        return jsonify({"error": "This account isn't linked to a saved workspace."}), 404
+
+    directory_col = get_workspace_db(workspace_db_name)["directory"]
+
+    mentor_doc = directory_col.find_one({"username": username, "role": "mentor"})
     if not mentor_doc:
         return jsonify({"error": "No cohort found for you yet. An admin needs to save a match first."}), 404
 
@@ -153,7 +166,7 @@ def my_cohort_route():
 
     students = []
     for mentee_username in mentee_usernames:
-        mentee_doc = users_col.find_one({"username": mentee_username, "role": "mentee"})
+        mentee_doc = directory_col.find_one({"username": mentee_username, "role": "mentee"})
         if mentee_doc:
             mentee_profile = mentee_doc.get("profile", {})
             student = {k: v for k, v in mentee_profile.items() if k != "assigned_mentor"}
@@ -170,3 +183,4 @@ def my_cohort_route():
         "students": students,
     }
     return jsonify({"cohort": cohort})
+
