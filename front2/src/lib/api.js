@@ -178,7 +178,7 @@ export async function apiClearDirectoryAccounts(workspaceDbName) {
     response = await fetch(`${API_BASE}/api/directory-accounts`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ mentors, cohorts, workspace: workspaceDbName }),
+      body: JSON.stringify({ confirm: true, workspace: workspaceDbName }),
     });
   } catch (networkErr) {
     return { ok: false, error: `Could not connect to ${API_BASE} to clear accounts.` };
