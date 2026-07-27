@@ -12,7 +12,6 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, g
 
 from auth import require_auth
-from db import users_col
 
 mentee_sessions_bp = Blueprint("mentee_sessions_bp", __name__)
 
@@ -30,15 +29,27 @@ def add_mentee_session_route():
       improvements: str
     }
     Only allowed if the mentee is actually assigned to the requesting mentor.
+
+    Mentor/mentee accounts live in their own workspace's "directory"
+    collection (not the control database's users_col) — the session
+    remembers which workspace this account came from, set at login time.
     """
     try:
+        from db import get_workspace_db
+
         data = request.get_json(silent=True) or {}
         mentee_username = (data.get("mentee_username") or "").strip()
         if not mentee_username:
             return jsonify({"error": "mentee_username is required"}), 400
 
         mentor_username = g.session["username"]
-        mentor_doc = users_col.find_one({"username": mentor_username, "role": "mentor"})
+        workspace_db_name = g.session.get("workspace_db")
+        if not workspace_db_name:
+            return jsonify({"error": "This account isn't linked to a saved workspace."}), 404
+
+        directory_col = get_workspace_db(workspace_db_name)["directory"]
+
+        mentor_doc = directory_col.find_one({"username": mentor_username, "role": "mentor"})
         if not mentor_doc:
             return jsonify({"error": "Mentor profile not found"}), 404
 
@@ -56,7 +67,7 @@ def add_mentee_session_route():
             "recorded_by": mentor_username,
         }
 
-        result = users_col.update_one(
+        result = directory_col.update_one(
             {"username": mentee_username, "role": "mentee"},
             {"$push": {"profile.sessions": session_entry}},
         )

@@ -31,7 +31,7 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(file_bp)
 app.register_blueprint(match_bp)
 app.register_blueprint(save_directory_bp)
-
+app.register_blueprint(mentee_sessions_bp)
 
 app.register_blueprint(workspace_bp)
 
