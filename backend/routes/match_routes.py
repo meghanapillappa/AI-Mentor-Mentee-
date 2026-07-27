@@ -16,6 +16,10 @@ import pandas as pd
 from flask import Blueprint, jsonify, request
 from auth import require_auth
 
+from datetime import datetime, timezone
+from flask import g
+from db import cohorts_col
+
 from services.matching_engine import (
     balance_matching,
     add_mentor_rebalance,
@@ -133,3 +137,49 @@ def rebalance_remove_route():
         return jsonify({"error": str(ve)}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@match_bp.route('/api/publish-cohorts', methods=['POST'])
+@require_auth(role="admin")
+def publish_cohorts_route():
+    """
+    Body: { cohorts: [<match result>] }
+    Saves the admin's current match results as the "live" published set,
+    which mentors can then fetch via /api/my-cohort. Overwrites whatever
+    was published before (single active snapshot, not a history).
+    """
+    data = request.get_json(silent=True)
+    if not data or not data.get("cohorts"):
+        return jsonify({"error": "No cohorts provided"}), 400
+
+    cohorts_col.update_one(
+        {"_id": "current"},
+        {"$set": {
+            "cohorts": data["cohorts"],
+            "published_at": datetime.now(timezone.utc),
+            "published_by": g.session["username"],
+        }},
+        upsert=True,
+    )
+    return jsonify({"message": "Cohorts published", "count": len(data["cohorts"])})
+
+
+@match_bp.route('/api/my-cohort', methods=['GET'])
+@require_auth(role="mentor")
+def my_cohort_route():
+    """
+    Returns the cohort belonging to the currently logged-in mentor, from the
+    most recently published set. Matches on cohort["mentor"] == username,
+    so a mentor's login username must match the "Mentor" name used in the
+    dataset — adjust the match key here if that's not the case in your data.
+    """
+    doc = cohorts_col.find_one({"_id": "current"})
+    if not doc:
+        return jsonify({"error": "No cohorts have been published yet"}), 404
+
+    username = g.session["username"]
+    cohort = next((c for c in doc["cohorts"] if c.get("mentor") == username), None)
+    if not cohort:
+        return jsonify({"error": "No cohort found for you in the published results"}), 404
+
+    return jsonify({"cohort": cohort})
