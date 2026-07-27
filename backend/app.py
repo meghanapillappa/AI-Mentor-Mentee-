@@ -16,6 +16,7 @@ from routes.auth_routes import auth_bp
 import db  # noqa: F401 — triggers index creation on startup
 
 from routes.save_directory_routes import save_directory_bp
+from routes.mentee_sessions_routes import mentee_sessions_bp
 
 from dotenv import load_dotenv
 
@@ -30,6 +31,7 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(file_bp)
 app.register_blueprint(match_bp)
 app.register_blueprint(save_directory_bp)
+app.register_blueprint(mentee_sessions_bp)
 
 
 if __name__ == '__main__':

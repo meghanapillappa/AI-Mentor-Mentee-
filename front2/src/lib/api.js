@@ -208,3 +208,23 @@ export async function apiClearDirectoryAccounts() {
   }
   return { ok: true, data };
 }
+
+/** POST /api/mentee-sessions — mentor records a session note for one of their mentees. */
+export async function apiAddMenteeSession(menteeUsername, sessionData) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/mentee-sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ mentee_username: menteeUsername, ...sessionData }),
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to save the session.` };
+  }
+
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) {
+    return { ok: false, error: data.error || 'Unknown error' };
+  }
+  return { ok: true, data };
+}
