@@ -6,6 +6,7 @@ Endpoints:
     POST /api/match
     POST /api/rebalance-add
     POST /api/rebalance-remove
+    GET  /api/my-cohort
 
 If your feature is about *matching/rebalancing behavior*, edit
 services/matching_engine.py; this file should only need to change if the
@@ -13,12 +14,9 @@ request/response shape itself changes.
 """
 
 import pandas as pd
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 from auth import require_auth
-
-from datetime import datetime, timezone
-from flask import g
-from db import cohorts_col
+from db import users_col
 
 from services.matching_engine import (
     balance_matching,
@@ -40,7 +38,6 @@ def match_mentors_students():
         students_data = data.get("students", [])
         mentors_list = data.get("mentors", [])
         excluded_mentors = data.get("excluded_mentors", [])
-
 
         if not students_data or not mentors_list:
             return jsonify({
@@ -124,7 +121,6 @@ def rebalance_remove_route():
         removed_mentor = (data.get("removed_mentor") or "").strip()
         excluded_mentors = data.get("excluded_mentors", [])
 
-
         if not cohorts:
             return jsonify({"error": "No existing match to rebalance"}), 400
         if not removed_mentor:
@@ -139,47 +135,38 @@ def rebalance_remove_route():
         return jsonify({"error": str(e)}), 500
 
 
-@match_bp.route('/api/publish-cohorts', methods=['POST'])
-@require_auth(role="admin")
-def publish_cohorts_route():
-    """
-    Body: { cohorts: [<match result>] }
-    Saves the admin's current match results as the "live" published set,
-    which mentors can then fetch via /api/my-cohort. Overwrites whatever
-    was published before (single active snapshot, not a history).
-    """
-    data = request.get_json(silent=True)
-    if not data or not data.get("cohorts"):
-        return jsonify({"error": "No cohorts provided"}), 400
-
-    cohorts_col.update_one(
-        {"_id": "current"},
-        {"$set": {
-            "cohorts": data["cohorts"],
-            "published_at": datetime.now(timezone.utc),
-            "published_by": g.session["username"],
-        }},
-        upsert=True,
-    )
-    return jsonify({"message": "Cohorts published", "count": len(data["cohorts"])})
-
-
 @match_bp.route('/api/my-cohort', methods=['GET'])
 @require_auth(role="mentor")
 def my_cohort_route():
     """
-    Returns the cohort belonging to the currently logged-in mentor, from the
-    most recently published set. Matches on cohort["mentor"] == username,
-    so a mentor's login username must match the "Mentor" name used in the
-    dataset — adjust the match key here if that's not the case in your data.
+    Returns the requesting mentor's own cohort, built from their user
+    profile (saved by /api/save-match-to-db), resolving each assigned
+    mentee username back to their own saved profile data.
     """
-    doc = cohorts_col.find_one({"_id": "current"})
-    if not doc:
-        return jsonify({"error": "No cohorts have been published yet"}), 404
-
     username = g.session["username"]
-    cohort = next((c for c in doc["cohorts"] if c.get("mentor") == username), None)
-    if not cohort:
-        return jsonify({"error": "No cohort found for you in the published results"}), 404
+    mentor_doc = users_col.find_one({"username": username, "role": "mentor"})
+    if not mentor_doc:
+        return jsonify({"error": "No cohort found for you yet. An admin needs to save a match first."}), 404
 
+    profile = mentor_doc.get("profile", {})
+    mentee_usernames = profile.get("assigned_mentees", [])
+
+    students = []
+    for mentee_username in mentee_usernames:
+        mentee_doc = users_col.find_one({"username": mentee_username, "role": "mentee"})
+        if mentee_doc:
+            mentee_profile = mentee_doc.get("profile", {})
+            student = {k: v for k, v in mentee_profile.items() if k != "assigned_mentor"}
+            student["uid"] = mentee_username
+            students.append(student)
+
+    cgpas = [s.get("CGPA") for s in students if isinstance(s.get("CGPA"), (int, float))]
+    average_gpa = sum(cgpas) / len(cgpas) if cgpas else 0
+
+    cohort = {
+        "mentor": profile.get("Name", username),
+        "student_count": len(students),
+        "average_gpa": average_gpa,
+        "students": students,
+    }
     return jsonify({"cohort": cohort})
