@@ -43,6 +43,11 @@ def add_mentee_session_route():
         if not mentee_username:
             return jsonify({"error": "mentee_username is required"}), 400
 
+        try:
+            session_number = int(data.get("session_number"))
+        except (TypeError, ValueError):
+            return jsonify({"error": "session_number must be a whole number"}), 400
+
         mentor_username = g.session["username"]
         workspace_db_name = g.session.get("workspace_db")
         if not workspace_db_name:
@@ -58,8 +63,12 @@ def add_mentee_session_route():
         if mentee_username not in assigned:
             return jsonify({"error": "This mentee is not assigned to you"}), 403
 
+        deadline_error = check_session_deadline(workspace_db_name, session_number, mentor_username)
+        if deadline_error:
+            return jsonify({"error": deadline_error}), 403
+
         session_entry = {
-            "session_number": data.get("session_number"),
+            "session_number": session_number,
             "attendance": data.get("attendance"),
             "remarks": (data.get("remarks") or "").strip(),
             "skills_learned": (data.get("skills_learned") or "").strip(),

@@ -379,3 +379,18 @@ export async function apiGetMyDeadlines() {
   if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
   return { ok: true, deadlines: data.deadlines };
 }
+
+/** GET /api/deadlines/overdue-mentors?workspace=... */
+export async function apiGetOverdueMentors(workspaceDbName) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/deadlines/overdue-mentors?workspace=${encodeURIComponent(workspaceDbName)}`, {
+      headers: { ...authHeaders() },
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to load overdue mentors.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, data: data.overdue };
+}

@@ -152,6 +152,76 @@ def check_session_deadline(workspace_db_name, session_number, mentor_username):
     return f"The deadline for session {session_number} has passed. Contact an admin for an extension."
 
 
+@deadline_bp.route("/api/deadlines/overdue-mentors", methods=["GET"])
+@require_auth(role="admin")
+def overdue_mentors_route():
+    """
+    For every session with a deadline that has passed, finds every mentor
+    in the given workspace who has NOT submitted a session entry for that
+    session number and does NOT have a personal extension — i.e. mentors
+    who are actually in violation right now.
+    """
+    from db import get_workspace_db
+
+    workspace_db_name = request.args.get("workspace")
+    if not workspace_db_name:
+        return jsonify({"error": "workspace is required"}), 400
+
+    now = datetime.now(timezone.utc)
+    deadlines_col = _deadlines_col(workspace_db_name)
+    directory_col = get_workspace_db(workspace_db_name)["directory"]
+
+    passed_deadlines = []
+    for d in deadlines_col.find({}):
+        if not d.get("deadline"):
+            continue
+        deadline_dt = datetime.fromisoformat(d["deadline"])
+        if deadline_dt.tzinfo is None:
+            deadline_dt = deadline_dt.replace(tzinfo=timezone.utc)
+        if deadline_dt < now:
+            passed_deadlines.append(d)
+
+    mentors = list(directory_col.find({"role": "mentor"}, {"_id": 0}))
+
+    overdue = []
+    for d in passed_deadlines:
+        session_number = d["session_number"]
+        extensions = set(d.get("extensions", []))
+
+        for mentor in mentors:
+            if mentor["username"] in extensions:
+                continue  # exempted for this session
+
+            assigned_mentees = mentor.get("profile", {}).get("assigned_mentees", [])
+            if not assigned_mentees:
+                continue  # nothing to be overdue on
+
+            missing_mentees = []
+            for mentee_username in assigned_mentees:
+                mentee_doc = directory_col.find_one(
+                    {"username": mentee_username, "role": "mentee"},
+                    {"profile.sessions": 1},
+                )
+                sessions_filled = {
+                    s.get("session_number")
+                    for s in (mentee_doc or {}).get("profile", {}).get("sessions", [])
+                }
+                if session_number not in sessions_filled:
+                    missing_mentees.append(mentee_username)
+
+            if missing_mentees:
+                overdue.append({
+                    "mentor_username": mentor["username"],
+                    "mentor_name": mentor.get("profile", {}).get("Name", mentor["username"]),
+                    "session_number": session_number,
+                    "deadline": d["deadline"],
+                    "missing_count": len(missing_mentees),
+                    "total_mentees": len(assigned_mentees),
+                })
+
+    overdue.sort(key=lambda o: (o["session_number"], o["mentor_name"]))
+    return jsonify({"overdue": overdue})
+
 @deadline_bp.route("/api/my-deadlines", methods=["GET"])
 @require_auth()
 def my_deadlines_route():
