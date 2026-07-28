@@ -184,3 +184,59 @@ def my_cohort_route():
     }
     return jsonify({"cohort": cohort})
 
+
+@match_bp.route('/api/my-profile', methods=['GET'])
+@require_auth(role="mentee")
+def my_profile_route():
+    """
+    Returns the requesting mentee's own profile (Name, CGPA, Section, etc.),
+    their assigned mentor's name, and the session notes recorded for them
+    by that mentor.
+
+    Mentor/mentee accounts live in their own workspace's "directory"
+    collection (not the control database's users_col) — the session
+    remembers which workspace this account came from, set at login time.
+    """
+    from db import get_workspace_db
+
+    username = g.session["username"]
+    workspace_db_name = g.session.get("workspace_db")
+
+    if not workspace_db_name:
+        return jsonify({"error": "This account isn't linked to a saved workspace."}), 404
+
+    directory_col = get_workspace_db(workspace_db_name)["directory"]
+
+    mentee_doc = directory_col.find_one({"username": username, "role": "mentee"})
+    if not mentee_doc:
+        return jsonify({"error": "No profile found for you yet. An admin needs to save a match first."}), 404
+
+    profile = mentee_doc.get("profile", {})
+    mentor_name = profile.get("assigned_mentor")
+
+    mentor_username = None
+    mentor_contact = None
+    if mentor_name:
+        mentor_doc = directory_col.find_one({"role": "mentor", "profile.Name": mentor_name})
+        if mentor_doc:
+            mentor_username = mentor_doc.get("username")
+            mentor_contact = mentor_doc.get("profile", {}).get("Email") or mentor_doc.get("profile", {}).get("email")
+
+    student_profile = {k: v for k, v in profile.items() if k != "sessions"}
+    sessions = sorted(
+        profile.get("sessions", []),
+        key=lambda s: s.get("session_number", 0),
+    )
+
+    result = {
+        "username": username,
+        "profile": student_profile,
+        "mentor": {
+            "name": mentor_name,
+            "username": mentor_username,
+            "contact": mentor_contact,
+        },
+        "sessions": sessions,
+    }
+    return jsonify(result)
+

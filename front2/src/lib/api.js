@@ -172,6 +172,75 @@ export async function apiGetMyCohort() {
   return { ok: true, cohort: data.cohort };
 }
 
+/** GET /api/my-profile — mentee fetches their own profile, mentor info, and session history. */
+export async function apiGetMyProfile() {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/my-profile`, {
+      method: 'GET',
+      headers: { ...authHeaders() },
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to fetch your profile.` };
+  }
+
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) {
+    return { ok: false, error: data.error || 'Unknown error' };
+  }
+  return { ok: true, profile: data.profile, mentor: data.mentor, sessions: data.sessions, username: data.username };
+}
+
+/** PATCH /api/my-profile — mentee updates their own about_me/goals/interests/contact fields. */
+export async function apiUpdateMyProfile(fields) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/my-profile`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(fields),
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to save your profile.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, profile: data.profile };
+}
+
+/** GET /api/messages — fetch the logged-in mentor/mentee's message thread. Mentors must pass menteeUsername. */
+export async function apiGetMessages(menteeUsername) {
+  const qs = menteeUsername ? `?mentee_username=${encodeURIComponent(menteeUsername)}` : '';
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/messages${qs}`, {
+      headers: { ...authHeaders() },
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to load messages.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, messages: data.messages };
+}
+
+/** POST /api/messages — send a message. Mentors must include menteeUsername. */
+export async function apiSendMessage(text, menteeUsername) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ text, ...(menteeUsername ? { mentee_username: menteeUsername } : {}) }),
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to send the message.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, message: data.message };
+}
+
 /** POST /api/save-match-to-db — persists mentors/mentees to the DB with mentor/mentee roles. */
 export async function apiSaveMatchToDb(mentors, cohorts, workspaceDbName) {
   let response;
