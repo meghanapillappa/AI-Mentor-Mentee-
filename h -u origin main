@@ -1,0 +1,31 @@
+[33m3266c9d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m deadlines functions
+[33m26fb765[m fixes
+[33m320e250[m Merge branch 'main' of https://github.com/meghanapillappa/AI-Mentor-Mentee- integrating files
+[33mdd276cc[m Update api.js
+[33mf86a908[m compatibility
+[33mfa9882d[m Resolve merge conflicts in app.py and api.js
+[33m4561241[m Saving changes
+[33m555bba3[m Merge branch 'main' of https://github.com/meghanapillappa/AI-Mentor-Mentee-
+[33m5b1feff[m multiple databases and logging in from each and deleting them
+[33m62f390c[m Fix my-cohort route to use users_col instead of removed cohorts_col
+[33m559b7f9[m multiple databases and logging in from each feature
+[33m81567fd[m Merge branch 'main' of https://github.com/meghanapillappa/AI-Mentor-Mentee-
+[33m76b8787[m multiple databases and logging in from each feature
+[33m2b9429d[m uhm
+[33mc687c6a[m Changes for MentorHome
+[33mb011c1b[m Merge branch 'main'
+[33ma3ab097[m cleaning
+[33m3dfb003[m matching can be directly added and removed from database
+[33m490b052[m Added Mentor page
+[33ma5ce32c[m Add files via upload
+[33m375a41f[m Added mentor page
+[33m81b362b[m readme update
+[33m6230923[m db integrate with auth at port:27018 & venv creation file
+[33m0efb551[m direct allocation & admin auth
+[33m5c69841[m Add files via upload
+[33m6e713a2[m readme update
+[33m90eb498[m fix changes
+[33mc168643[m Readme update
+[33md96b347[m direct reallocation and exclusion/buffer of mentors
+[33m697a938[m readme update
+[33m1d8a815[m Initial commit

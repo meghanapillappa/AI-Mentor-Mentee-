@@ -13,7 +13,7 @@ import NewCredentialsModal from './components/NewCredentialsModal';
 
 import { useAuth } from './hooks/useAuth';
 import LoginPage from './components/LoginPage';
-import UserHome from './components/UserHome';
+import MenteeHome from './components/MenteeHome';
 import MentorHome from './components/MentorHome';
 import WorkspaceSelector from './components/WorkspaceSelector';
 import { apiGetMyCohort } from './lib/api';
@@ -93,13 +93,14 @@ export default function App() {
         <MentorHome
           username={auth.session.username}
           cohort={mentorCohort}
+          cohortError={mentorCohortError}
           onLogout={auth.logout}
         />
       );
     }
     
-    // Mentee accounts: intentionally on hold, unchanged.
-    return <UserHome username={auth.session.username} onLogout={auth.logout} />;
+    // Mentee accounts: fetch and display their own profile, mentor, and sessions.
+    return <MenteeHome username={auth.session.username} onLogout={auth.logout} />;
   }
   
   if (view === 'deadlines') {
