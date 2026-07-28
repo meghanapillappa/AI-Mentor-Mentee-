@@ -5,6 +5,7 @@ import {
   apiDeleteDeadline,
   apiGrantExtension,
   apiRevokeExtension,
+  apiGetOverdueMentors,
 } from '../lib/api';
 import WorkspaceSelector from './WorkspaceSelector';
 
@@ -18,6 +19,9 @@ export default function DeadlinesPage({ activeWorkspace, setActiveWorkspace, onB
 
   const [extendInputs, setExtendInputs] = useState({}); // sessionNumber -> mentor username being typed
 
+  const [overdue, setOverdue] = useState([]);
+  const [overdueLoading, setOverdueLoading] = useState(false);
+
   const refresh = async () => {
     if (!activeWorkspace?.db_name) return;
     setLoading(true);
@@ -26,6 +30,15 @@ export default function DeadlinesPage({ activeWorkspace, setActiveWorkspace, onB
     if (!result.ok) { setError(result.error); return; }
     setError('');
     setDeadlines(result.data);
+    refreshOverdue();
+  };
+
+  const refreshOverdue = async () => {
+    if (!activeWorkspace?.db_name) return;
+    setOverdueLoading(true);
+    const result = await apiGetOverdueMentors(activeWorkspace.db_name);
+    setOverdueLoading(false);
+    if (result.ok) setOverdue(result.data);
   };
 
   useEffect(() => { refresh(); }, [activeWorkspace?.db_name]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -87,6 +100,54 @@ export default function DeadlinesPage({ activeWorkspace, setActiveWorkspace, onB
       )}
 
       {error && <div className="status-line err" style={{ marginBottom: 16 }}>{error}</div>}
+
+      {activeWorkspace && (
+        <div className="dataset-editor">
+          <div className="dataset-editor-header">
+            <h3>Mentors past a deadline</h3>
+            {overdueLoading && <span className="status-line">Checking…</span>}
+          </div>
+          {overdue.length === 0 ? (
+            <p className="empty-note" style={{ padding: '4px 0' }}>
+              Nobody is currently overdue in this database.
+            </p>
+          ) : (
+            <table className="editable-table">
+              <thead>
+                <tr>
+                  <th>Mentor</th>
+                  <th>Session</th>
+                  <th>Deadline was</th>
+                  <th>Missing mentees</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {overdue.map(o => (
+                  <tr key={`${o.mentor_username}-${o.session_number}`}>
+                    <td style={{ padding: '7px 10px' }}>{o.mentor_name}</td>
+                    <td style={{ padding: '7px 10px' }}>Session {o.session_number}</td>
+                    <td style={{ padding: '7px 10px' }}>{new Date(o.deadline).toLocaleDateString('en-GB')}</td>
+                    <td style={{ padding: '7px 10px' }}>{o.missing_count} of {o.total_mentees}</td>
+                    <td className="row-remove" style={{ width: 'auto', padding: '7px 10px' }}>
+                      <button
+                        className="ghost-btn"
+                        onClick={async () => {
+                          const result = await apiGrantExtension(activeWorkspace.db_name, o.session_number, o.mentor_username);
+                          if (!result.ok) { setError(result.error); return; }
+                          refresh();
+                        }}
+                      >
+                        Grant extension
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {activeWorkspace && (
         <>
