@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from auth import require_auth, find_account_and_location, _password_matches
+from auth import require_auth, find_account_and_location, _password_matches, generate_temp_password
 
 password_bp = Blueprint("password_bp", __name__)
 
@@ -64,12 +64,47 @@ def request_password_change_route():
         "request_id": request_id,
         "username": username,
         "role": user["role"],
+        "type": "change",
         "new_password_hash": generate_password_hash(new_password),
         "requested_at": datetime.now(timezone.utc).isoformat(),
         "status": "pending",
     })
 
     return jsonify({"message": "Request submitted. An admin needs to approve it before the new password is active."})
+
+
+@password_bp.route("/api/forgot-password", methods=["POST"])
+def forgot_password_route():
+    """
+    Body: { username } — no current password needed, since the whole
+    point is the person doesn't have it. An admin approves this by
+    generating a brand-new password for them (shown once to the admin to
+    hand out), same as if the account had just been created.
+    """
+    data = request.get_json(silent=True) or {}
+    username = (data.get("username") or "").strip()
+    if not username:
+        return jsonify({"error": "username is required"}), 400
+
+    user, location = find_account_and_location(username)
+    if user:
+        col = _requests_col(location)
+        already_pending = col.find_one({"username": username, "type": "forgot", "status": "pending"})
+        if not already_pending:
+            request_id = secrets.token_hex(12)
+            col.insert_one({
+                "request_id": request_id,
+                "username": username,
+                "role": user["role"],
+                "type": "forgot",
+                "new_password_hash": None,
+                "requested_at": datetime.now(timezone.utc).isoformat(),
+                "status": "pending",
+            })
+
+    # Same response whether or not the account exists, so this endpoint
+    # can't be used to check which usernames are valid.
+    return jsonify({"message": "If this account exists, a password reset request has been sent to an admin."})
 
 
 @password_bp.route("/api/password-requests", methods=["GET"])
@@ -98,15 +133,27 @@ def approve_password_request_route(request_id):
         return jsonify({"error": "Request not found or already handled"}), 404
 
     account_col = _account_col(workspace_db_name)
+
+    generated_password = None
+    if req.get("type") == "forgot":
+        generated_password = generate_temp_password()
+        new_hash = generate_password_hash(generated_password)
+    else:
+        new_hash = req["new_password_hash"]
+
     result = account_col.update_one(
         {"username": req["username"]},
-        {"$set": {"password_hash_secondary": req["new_password_hash"]}},
+        {"$set": {"password_hash_secondary": new_hash}},
     )
     if result.matched_count == 0:
         return jsonify({"error": "Account no longer exists"}), 404
 
     requests_col.update_one({"request_id": request_id}, {"$set": {"status": "approved"}})
-    return jsonify({"message": f"Approved. {req['username']} can now log in with either password."})
+
+    response = {"message": f"Approved. {req['username']} can now log in with either password."}
+    if generated_password:
+        response["generated_password"] = generated_password
+    return jsonify(response)
 
 
 @password_bp.route("/api/password-requests/<request_id>/reject", methods=["POST"])

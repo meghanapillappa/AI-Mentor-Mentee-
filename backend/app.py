@@ -19,6 +19,8 @@ from routes.save_directory_routes import save_directory_bp
 from routes.mentee_sessions_routes import mentee_sessions_bp
 from routes.deadline_routes import deadline_bp
 from routes.mentee_profile_routes import mentee_profile_bp
+from routes.password_routes import password_bp
+from routes.Db_viewer_routes import db_viewer_bp
 
 
 from dotenv import load_dotenv
@@ -38,7 +40,8 @@ app.register_blueprint(mentee_sessions_bp)
 app.register_blueprint(deadline_bp)
 app.register_blueprint(workspace_bp)
 app.register_blueprint(mentee_profile_bp)
-
+app.register_blueprint(password_bp)
+app.register_blueprint(db_viewer_bp)
 
 
 if __name__ == '__main__':

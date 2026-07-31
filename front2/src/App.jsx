@@ -18,6 +18,8 @@ import MentorHome from './components/MentorHome';
 import WorkspaceSelector from './components/WorkspaceSelector';
 import { apiGetMyCohort } from './lib/api';
 import DeadlinesPage from './components/DeadlinesPage';
+import PasswordRequestsPage from './components/PasswordRequestsPage';
+import DatabaseViewerPage from './components/DatabaseViewerPage';
 
 export default function App() {
   const auth = useAuth();
@@ -112,6 +114,25 @@ export default function App() {
       />
     );
   }
+  if (view === 'password-requests') {
+    return (
+      <PasswordRequestsPage
+        activeWorkspace={activeWorkspace}        
+        setActiveWorkspace={setActiveWorkspace}
+        onBack={() => setView('main')}
+      />
+    );
+  }
+
+  if (view === 'db-viewer') {
+    return (
+      <DatabaseViewerPage
+        activeWorkspace={activeWorkspace}
+        setActiveWorkspace={setActiveWorkspace}
+        onBack={() => setView('main')}
+      />
+    );
+  }
 
   return (
     <div className="workspace">
@@ -124,6 +145,14 @@ export default function App() {
 
         <button className="ghost-btn" onClick={() => setView('deadlines')}>
            Manage Deadlines
+        </button>
+
+        <button className="ghost-btn" onClick={() => setView('password-requests')}>
+          Password Requests
+        </button>
+
+        <button className="ghost-btn" onClick={() => setView('db-viewer')}>
+          Database Viewer
         </button>
       </header>
 

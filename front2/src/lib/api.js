@@ -463,3 +463,136 @@ export async function apiGetOverdueMentors(workspaceDbName) {
   if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
   return { ok: true, data: data.overdue };
 }
+
+/** POST /api/password-requests — no auth needed, identity proven via current password. */
+export async function apiRequestPasswordChange(username, currentPassword, newPassword) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/password-requests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, current_password: currentPassword, new_password: newPassword }),
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE}.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, message: data.message };
+}
+
+/** GET /api/password-requests?workspace=... — omit workspace for admin-account requests. */
+export async function apiListPasswordRequests(workspaceDbName) {
+  let response;
+  try {
+    const query = workspaceDbName ? `?workspace=${encodeURIComponent(workspaceDbName)}` : '';
+    response = await fetch(`${API_BASE}/api/password-requests${query}`, {
+      headers: { ...authHeaders() },
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE}.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, data: data.requests };
+}
+
+/** POST /api/password-requests/:id/approve */
+export async function apiApprovePasswordRequest(requestId, workspaceDbName) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/password-requests/${requestId}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ workspace: workspaceDbName || null }),
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE}.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, message: data.message, generatedPassword: data.generated_password };
+}
+
+/** POST /api/password-requests/:id/reject */
+export async function apiRejectPasswordRequest(requestId, workspaceDbName) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/password-requests/${requestId}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ workspace: workspaceDbName || null }),
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE}.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, message: data.message };
+}
+
+/** POST /api/forgot-password — no auth needed, no current password needed. */
+export async function apiForgotPassword(username) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username }),
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE}.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, message: data.message };
+}
+
+
+/** GET /api/db-viewer/collections?workspace=... (omit for control db) */
+export async function apiListCollections(workspaceDbName) {
+  let response;
+  try {
+    const query = workspaceDbName ? `?workspace=${encodeURIComponent(workspaceDbName)}` : '';
+    response = await fetch(`${API_BASE}/api/db-viewer/collections${query}`, {
+      headers: { ...authHeaders() },
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE}.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, data: data.collections };
+}
+
+/** GET /api/db-viewer/documents?workspace=...&collection=...&page=...&limit=... */
+export async function apiListDocuments(workspaceDbName, collectionName, page = 1, limit = 20) {
+  let response;
+  try {
+    const params = new URLSearchParams({ collection: collectionName, page, limit });
+    if (workspaceDbName) params.set('workspace', workspaceDbName);
+    response = await fetch(`${API_BASE}/api/db-viewer/documents?${params}`, {
+      headers: { ...authHeaders() },
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE}.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, data };
+}
+
+/** GET /api/db-viewer/directory-as-cohorts?workspace=... — cohort-shaped view of the directory collection. */
+export async function apiGetDirectoryAsCohorts(workspaceDbName) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/db-viewer/directory-as-cohorts?workspace=${encodeURIComponent(workspaceDbName)}`, {
+      headers: { ...authHeaders() },
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE}.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, cohorts: data.cohorts };
+}

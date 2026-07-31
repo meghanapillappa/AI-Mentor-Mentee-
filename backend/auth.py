@@ -1,12 +1,9 @@
-
 import secrets
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 from flask import request, jsonify
-from flask import request, jsonify, g
 from werkzeug.security import generate_password_hash, check_password_hash
-from db import users_col, sessions_col
 
 SESSION_TTL_HOURS = 12
 
@@ -29,6 +26,23 @@ def create_user(username, password, role="user"):
         "created_at": datetime.now(timezone.utc),
     })
 
+
+def _password_matches(user, password):
+    """
+    Mentor/mentee accounts can have two valid passwords at once: the
+    original random one generated at creation (password_hash), and an
+    admin-approved user-chosen replacement (password_hash_secondary).
+    Either one logs them in — the original is never invalidated by a
+    password change, only supplemented.
+    """
+    if check_password_hash(user["password_hash"], password):
+        return True
+    secondary = user.get("password_hash_secondary")
+    if secondary and check_password_hash(secondary, password):
+        return True
+    return False
+
+
 def login(username, password):
     """
     Checks the control database's admin accounts first, then falls back to
@@ -50,9 +64,7 @@ def login(username, password):
                 source_db_name = ws["db_name"]
                 break
 
-    print(f"[login] username={username!r} found_in_control={bool(user and not source_db_name)} found_in_workspace={source_db_name}")
-
-    if not user or not check_password_hash(user["password_hash"], password):
+    if not user or not _password_matches(user, password):
         return None
 
     token = secrets.token_hex(24)
@@ -91,7 +103,6 @@ def require_auth(role=None):
                 return jsonify({"error": "Not authenticated"}), 401
             if role and session["role"] != role:
                 return jsonify({"error": "Forbidden"}), 403
-            g.session = session
             return fn(*args, **kwargs)
         return wrapper
     return decorator
@@ -101,6 +112,28 @@ def require_auth(role=None):
 # Mentor/mentee directory accounts (per-workspace database — its own
 # "directory" collection, separate from the control database's admin users)
 # ---------------------------------------------------------------------------
+
+def find_account_and_location(username):
+    """
+    Locates an account (admin, mentor, or mentee) and where it lives.
+    Returns (user_doc, location) where location is None for a control-db
+    admin account, or the workspace db_name for a mentor/mentee account.
+    Returns (None, None) if no account with this username exists anywhere.
+    """
+    from db import users_col, workspaces_col, get_workspace_db
+
+    user = users_col.find_one({"username": username})
+    if user:
+        return user, None
+
+    for ws in workspaces_col.find({}, {"db_name": 1}):
+        directory_col = get_workspace_db(ws["db_name"])["directory"]
+        candidate = directory_col.find_one({"username": username})
+        if candidate:
+            return candidate, ws["db_name"]
+
+    return None, None
+
 
 def generate_temp_password():
     """8-char, easy-to-read random password for distribution to mentors/mentees."""
