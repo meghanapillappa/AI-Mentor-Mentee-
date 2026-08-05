@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { apiAddMenteeSession } from '../lib/api';
 
-export default function MenteeDetailModal({ mentee, onClose, onSessionAdded }) {
+export default function MenteeDetailModal({ mentee, onClose, onSessionAdded, readOnly = false }) {
   const sessions = mentee?.sessions || [];
   const nextSessionNumber = sessions.length > 0
     ? Math.max(...sessions.map(s => s.session_number || 0)) + 1
@@ -33,7 +33,7 @@ export default function MenteeDetailModal({ mentee, onClose, onSessionAdded }) {
       setError(result.error);
       return;
     }
-    onSessionAdded(result.data.session);
+    if (onSessionAdded) onSessionAdded(result.data.session);
     setSessionNumber(Number(sessionNumber) + 1);
     setAttendance('');
     setRemarks('');
@@ -54,8 +54,8 @@ export default function MenteeDetailModal({ mentee, onClose, onSessionAdded }) {
           <button className="ghost-btn" onClick={onClose}>Close</button>
         </div>
 
-        <div className="mentee-modal-body">
-          <section className="mentee-modal-history">
+          <div className="mentee-modal-body" style={readOnly ? { gridTemplateColumns: '1fr' } : {}}>
+            <section className="mentee-modal-history">
             <h3>Session History</h3>
             {sessions.length === 0 ? (
               <p className="empty-note">No sessions recorded yet.</p>
@@ -78,62 +78,64 @@ export default function MenteeDetailModal({ mentee, onClose, onSessionAdded }) {
             )}
           </section>
 
-          <section className="mentee-modal-form">
-            <h3>Add New Session</h3>
-            <form onSubmit={handleSubmit}>
-              <div className="form-row">
+          {!readOnly && (
+            <section className="mentee-modal-form">
+              <h3>Add New Session</h3>
+              <form onSubmit={handleSubmit}>
+                <div className="form-row">
+                  <label>
+                    Session number
+                    <input
+                      type="number"
+                      min="1"
+                      value={sessionNumber}
+                      onChange={(e) => setSessionNumber(e.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Attendance up to this session (%)
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={attendance}
+                      onChange={(e) => setAttendance(e.target.value)}
+                      placeholder="e.g. 92"
+                    />
+                  </label>
+                </div>
                 <label>
-                  Session number
-                  <input
-                    type="number"
-                    min="1"
-                    value={sessionNumber}
-                    onChange={(e) => setSessionNumber(e.target.value)}
-                    required
+                  Skills / topics learned
+                  <textarea
+                    value={skillsLearned}
+                    onChange={(e) => setSkillsLearned(e.target.value)}
+                    rows={2}
                   />
                 </label>
                 <label>
-                  Attendance up to this session (%)
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={attendance}
-                    onChange={(e) => setAttendance(e.target.value)}
-                    placeholder="e.g. 92"
+                  Areas to improve
+                  <textarea
+                    value={improvements}
+                    onChange={(e) => setImprovements(e.target.value)}
+                    rows={2}
                   />
                 </label>
-              </div>
-              <label>
-                Skills / topics learned
-                <textarea
-                  value={skillsLearned}
-                  onChange={(e) => setSkillsLearned(e.target.value)}
-                  rows={2}
-                />
-              </label>
-              <label>
-                Areas to improve
-                <textarea
-                  value={improvements}
-                  onChange={(e) => setImprovements(e.target.value)}
-                  rows={2}
-                />
-              </label>
-              <label>
-                Remarks
-                <textarea
-                  value={remarks}
-                  onChange={(e) => setRemarks(e.target.value)}
-                  rows={2}
-                />
-              </label>
-              {error && <p className="form-error">{error}</p>}
-              <button className="primary-btn" type="submit" disabled={saving}>
-                {saving ? 'Saving...' : 'Save session'}
-              </button>
-            </form>
-          </section>
+                <label>
+                  Remarks
+                  <textarea
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    rows={2}
+                  />
+                </label>
+                {error && <p className="form-error">{error}</p>}
+                <button className="primary-btn" type="submit" disabled={saving}>
+                  {saving ? 'Saving...' : 'Save session'}
+                </button>
+              </form>
+            </section>
+          )}
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import CohortCard from './CohortCard';
 
-export default function CohortsGrid({ matching, matchError, cards, hasRun }) {
-  if (!hasRun && !matching) {
+export default function CohortsGrid({ matching, matchError, cards, hasRun, onViewStudent }) {
+    if (!hasRun && !matching) {
     return <div className="roster-grid" />;
   }
 
@@ -33,7 +33,7 @@ export default function CohortsGrid({ matching, matchError, cards, hasRun }) {
 
   return (
     <div className="roster-grid">
-      {cards.map(card => <CohortCard key={card.cohort.mentor} {...card} />)}
+      {cards.map(card => <CohortCard key={card.cohort.mentor} {...card} onViewStudent={onViewStudent} />)}
     </div>
   );
 }

@@ -155,12 +155,6 @@ def upsert_directory_user(workspace_db_name, username, role, profile):
     database if one doesn't exist yet (with a fresh random password), or
     just refreshes their profile data if the account already exists —
     existing passwords are never touched or regenerated.
-
-    Uniqueness is scoped to the workspace: the same username can exist
-    independently in two different workspaces (e.g. "101" from two
-    different semesters' datasets) without clashing.
-
-    Returns {"username", "role", "created": bool, "password": str|None}
     """
     from db import get_workspace_db
 
@@ -170,6 +164,18 @@ def upsert_directory_user(workspace_db_name, username, role, profile):
     existing = directory_col.find_one({"username": username})
 
     if existing:
+        # --- FIX: Preserve session history and mentee-edited fields ---
+        existing_profile = existing.get("profile", {})
+        if role == "mentee":
+            if "sessions" in existing_profile:
+                profile["sessions"] = existing_profile["sessions"]
+            
+            # Also preserve self-service fields from mentee_profile_routes
+            for field in ["about_me", "goals", "interests", "contact_email", "contact_phone"]:
+                if field in existing_profile:
+                    profile[field] = existing_profile[field]
+        # --------------------------------------------------------------
+
         directory_col.update_one(
             {"username": username},
             {"$set": {"role": role, "profile": profile}},
@@ -200,6 +206,11 @@ def sync_workspace_directory(workspace_db_name, cohorts):
 
     directory_col = get_workspace_db(workspace_db_name)["directory"]
     directory_col.create_index("username", unique=True)
+
+    directory_col.update_many(
+        {"role": "mentor"},
+        {"$set": {"profile.assigned_mentees": [], "profile.mentee_count": 0}}
+    )
 
     active_usernames = set()
     created_count = 0

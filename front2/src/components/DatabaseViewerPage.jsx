@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { apiListCollections, apiListDocuments, apiGetDirectoryAsCohorts } from '../lib/api';
+import { apiListCollections, apiListDocuments, apiGetDirectoryAsCohorts, apiGetMenteeSessionsAdmin } from '../lib/api';
 import { filterCohorts } from '../lib/filterCohorts';
 import WorkspaceSelector from './WorkspaceSelector';
 import MacroMetrics from './MacroMetrics';
 import SearchFilterBar, { DEFAULT_FILTERS } from './SearchFilterBar';
 import CohortsGrid from './CohortsGrid';
+import MenteeDetailModal from './MenteeDetailModal';
 
 export default function DatabaseViewerPage({ activeWorkspace, setActiveWorkspace, onBack }) {
   const [collections, setCollections] = useState([]);
@@ -20,9 +21,19 @@ export default function DatabaseViewerPage({ activeWorkspace, setActiveWorkspace
   const [directoryCohorts, setDirectoryCohorts] = useState([]);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [reallocVisible, setReallocVisible] = useState(false); // unused toggle target, kept for prop compatibility
+  const [adminSelectedStudent, setAdminSelectedStudent] = useState(null);
 
   const isCardsView = selectedCollection === 'directory' && Boolean(activeWorkspace);
 
+  const handleViewStudentSessions = async (student) => {
+    if (!activeWorkspace?.db_name) return;
+    const result = await apiGetMenteeSessionsAdmin(student.uid, activeWorkspace.db_name);
+    if (result.ok) {
+      setAdminSelectedStudent({ ...student, sessions: result.sessions });
+    } else {
+      alert(`Error loading sessions: ${result.error}`);
+    }
+  };
   const refreshCollections = async () => {
     setLoading(true);
     const result = await apiListCollections(activeWorkspace?.db_name);
@@ -133,6 +144,7 @@ export default function DatabaseViewerPage({ activeWorkspace, setActiveWorkspace
             matchError={error}
             cards={cards}
             hasRun={true}
+            onViewStudent={handleViewStudentSessions}
           />
         </>
       ) : (
@@ -166,6 +178,16 @@ export default function DatabaseViewerPage({ activeWorkspace, setActiveWorkspace
           )}
         </>
       )}
+
+      {adminSelectedStudent && (
+        <MenteeDetailModal
+          mentee={adminSelectedStudent}
+          onClose={() => setAdminSelectedStudent(null)}
+          readOnly={true}
+        />
+      )}
+
+      
     </div>
   );
 }

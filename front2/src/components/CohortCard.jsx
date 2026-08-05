@@ -7,6 +7,7 @@ export default function CohortCard({
   viewLimitCount,
   searchTerm,
   anyStudentFilterActive,
+  onViewStudent,
 }) {
   return (
     <div className="cohort-card">
@@ -34,11 +35,12 @@ export default function CohortCard({
               <th>Assigned Grade</th>
               <th>Section</th>
               <th style={{ textAlign: 'right' }}>CGPA</th>
+              {onViewStudent && <th></th>}
             </tr>
           </thead>
           <tbody>
             {renderedSlice.length === 0 && (
-              <tr><td colSpan={4} className="empty-note">No students match the current filters.</td></tr>
+              <tr><td colSpan={colCount} className="empty-note">No students match the current filters.</td></tr>
             )}
             {renderedSlice.map(s => {
               const isMatch = Boolean(searchTerm) && !mentorNameMatches && s.name.toLowerCase().includes(searchTerm);
@@ -50,6 +52,13 @@ export default function CohortCard({
                   </td>
                   <td className="col-mono">Section {s.Section}</td>
                   <td className="col-mono col-gpa">{s.CGPA.toFixed(2)}</td>
+                  {onViewStudent && (
+                    <td style={{ textAlign: 'right' }}>
+                      <button className="ghost-btn" onClick={() => onViewStudent(s)}>
+                        View Sessions
+                      </button>
+                    </td>
+                  )}
                 </tr>
               );
             })}

@@ -88,3 +88,35 @@ def add_mentee_session_route():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@mentee_sessions_bp.route("/api/mentee-sessions/<mentee_username>", methods=["GET"])
+@require_auth(role=["admin", "viewer"])
+def get_mentee_sessions_admin_route(mentee_username):
+    """
+    Allows admins/viewers to pull the session history for a specific mentee.
+    """
+    try:
+        from db import get_workspace_db
+        
+        workspace_db_name = request.args.get("workspace")
+        if not workspace_db_name:
+            return jsonify({"error": "workspace is required"}), 400
+
+        directory_col = get_workspace_db(workspace_db_name)["directory"]
+        
+        mentee_doc = directory_col.find_one({"username": mentee_username, "role": "mentee"})
+        if not mentee_doc:
+            return jsonify({"error": "Mentee account not found"}), 404
+
+        # Extract and sort sessions
+        sessions = mentee_doc.get("profile", {}).get("sessions", [])
+        sessions_sorted = sorted(sessions, key=lambda s: s.get("session_number", 0))
+
+        return jsonify({
+            "mentee_username": mentee_username,
+            "sessions": sessions_sorted
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

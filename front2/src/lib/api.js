@@ -596,3 +596,21 @@ export async function apiGetDirectoryAsCohorts(workspaceDbName) {
   if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
   return { ok: true, cohorts: data.cohorts };
 }
+
+/** GET /api/mentee-sessions/:username — Admin fetches a specific mentee's session history. */
+export async function apiGetMenteeSessionsAdmin(menteeUsername, workspaceDbName) {
+  let response;
+  try {
+    const query = workspaceDbName ? `?workspace=${encodeURIComponent(workspaceDbName)}` : '';
+    response = await fetch(`${API_BASE}/api/mentee-sessions/${encodeURIComponent(menteeUsername)}${query}`, {
+      headers: { ...authHeaders() },
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to load sessions.` };
+  }
+  
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  
+  return { ok: true, sessions: data.sessions, mentee_username: data.mentee_username };
+}

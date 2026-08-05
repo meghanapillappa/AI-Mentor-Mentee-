@@ -17,7 +17,8 @@ import MenteeHome from './components/MenteeHome';
 import MentorHome from './components/MentorHome';
 import ViewerHome from './components/ViewerHome';
 import WorkspaceSelector from './components/WorkspaceSelector';
-import { apiGetMyCohort } from './lib/api';
+import { apiGetMyCohort, apiGetMenteeSessionsAdmin } from './lib/api';
+import MenteeDetailModal from './components/MenteeDetailModal';
 import DeadlinesPage from './components/DeadlinesPage';
 import PasswordRequestsPage from './components/PasswordRequestsPage';
 import DatabaseViewerPage from './components/DatabaseViewerPage';
@@ -31,6 +32,23 @@ export default function App() {
   const { lastCohorts } = engine;
   const [activeWorkspace, setActiveWorkspace] = useState(null);
   const [view, setView] = useState('main');
+  
+  const [adminSelectedStudent, setAdminSelectedStudent] = useState(null);
+
+  const handleViewStudentSessions = async (student) => {
+    if (!activeWorkspace?.db_name) {
+      alert("Please select a workspace from the sidebar to view sessions.");
+      return;
+    }
+    const result = await apiGetMenteeSessionsAdmin(student.uid, activeWorkspace.db_name);
+    if (result.ok) {
+      setAdminSelectedStudent({ ...student, sessions: result.sessions });
+    } else {
+      alert(`Error loading sessions: ${result.error}`);
+    }
+  };
+
+  // Mentor-only: fetch just this mentor's own cohort from the backend
 
   // Mentor-only: fetch just this mentor's own cohort from the backend
   // (/api/my-cohort), independent of the admin's local `lastCohorts` state
@@ -233,10 +251,19 @@ export default function App() {
             matchError={engine.matchError}
             cards={cards}
             hasRun={engine.hasRun}
+            onViewStudent={handleViewStudentSessions}
           />
 
           <RemovalDecisionModal pending={engine.pendingRemoval} onResolve={engine.resolvePendingRemoval} />
           <NewCredentialsModal result={engine.newCredentials} onClose={() => engine.setNewCredentials(null)} />
+          
+          {adminSelectedStudent && (
+            <MenteeDetailModal
+              mentee={adminSelectedStudent}
+              onClose={() => setAdminSelectedStudent(null)}
+              readOnly={true}
+            />
+          )}            
         </main>
       </div>
     </div>
