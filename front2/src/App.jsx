@@ -18,8 +18,6 @@ import MentorHome from './components/MentorHome';
 import WorkspaceSelector from './components/WorkspaceSelector';
 import { apiGetMyCohort } from './lib/api';
 import DeadlinesPage from './components/DeadlinesPage';
-import PasswordRequestsPage from './components/PasswordRequestsPage';
-import DatabaseViewerPage from './components/DatabaseViewerPage';
 
 export default function App() {
   const auth = useAuth();
@@ -28,7 +26,7 @@ export default function App() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const { lastCohorts } = engine;
   const [activeWorkspace, setActiveWorkspace] = useState(null);
-  const [view, setView] = useState('main'); 
+  const [view, setView] = useState('main');
 
   // Mentor-only: fetch just this mentor's own cohort from the backend
   // (/api/my-cohort), independent of the admin's local `lastCohorts` state
@@ -100,35 +98,16 @@ export default function App() {
         />
       );
     }
-    
+
     // Mentee accounts: fetch and display their own profile, mentor, and sessions.
     return <MenteeHome username={auth.session.username} onLogout={auth.logout} />;
   }
-  
+
   if (view === 'deadlines') {
     return (
        <DeadlinesPage
        activeWorkspace={activeWorkspace}
        setActiveWorkspace={setActiveWorkspace}
-        onBack={() => setView('main')}
-      />
-    );
-  }
-  if (view === 'password-requests') {
-    return (
-      <PasswordRequestsPage
-        activeWorkspace={activeWorkspace}        
-        setActiveWorkspace={setActiveWorkspace}
-        onBack={() => setView('main')}
-      />
-    );
-  }
-
-  if (view === 'db-viewer') {
-    return (
-      <DatabaseViewerPage
-        activeWorkspace={activeWorkspace}
-        setActiveWorkspace={setActiveWorkspace}
         onBack={() => setView('main')}
       />
     );
@@ -145,14 +124,6 @@ export default function App() {
 
         <button className="ghost-btn" onClick={() => setView('deadlines')}>
            Manage Deadlines
-        </button>
-
-        <button className="ghost-btn" onClick={() => setView('password-requests')}>
-          Password Requests
-        </button>
-
-        <button className="ghost-btn" onClick={() => setView('db-viewer')}>
-          Database Viewer
         </button>
       </header>
 

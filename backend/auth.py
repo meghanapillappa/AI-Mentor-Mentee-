@@ -2,7 +2,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 
-from flask import request, jsonify
+from flask import request, jsonify, g
 from werkzeug.security import generate_password_hash, check_password_hash
 
 SESSION_TTL_HOURS = 12
@@ -103,6 +103,9 @@ def require_auth(role=None):
                 return jsonify({"error": "Not authenticated"}), 401
             if role and session["role"] != role:
                 return jsonify({"error": "Forbidden"}), 403
+
+            g.session = session  # Attach session to Flask's g object
+
             return fn(*args, **kwargs)
         return wrapper
     return decorator
