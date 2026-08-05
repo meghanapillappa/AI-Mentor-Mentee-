@@ -20,7 +20,7 @@ from pymongo.errors import ServerSelectionTimeoutError
 load_dotenv()
 
 # MongoDB configuration
-MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
+MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27018")
 DB_NAME = os.environ.get("MONGO_DB_NAME", "mentor_mentee")
 
 # ----------------------------------------------------------
