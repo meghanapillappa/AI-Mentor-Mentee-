@@ -15,6 +15,7 @@ import { useAuth } from './hooks/useAuth';
 import LoginPage from './components/LoginPage';
 import MenteeHome from './components/MenteeHome';
 import MentorHome from './components/MentorHome';
+import ViewerHome from './components/ViewerHome';
 import WorkspaceSelector from './components/WorkspaceSelector';
 import { apiGetMyCohort } from './lib/api';
 import DeadlinesPage from './components/DeadlinesPage';
@@ -97,6 +98,10 @@ export default function App() {
           onLogout={auth.logout}
         />
       );
+    }
+
+    if (auth.session.role === 'viewer') {
+      return <ViewerHome username={auth.session.username} onLogout={auth.logout} />;
     }
 
     // Mentee accounts: fetch and display their own profile, mentor, and sessions.

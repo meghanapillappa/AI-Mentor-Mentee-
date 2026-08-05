@@ -18,7 +18,7 @@ workspace_bp = Blueprint("workspace_bp", __name__)
 
 
 @workspace_bp.route("/api/workspaces", methods=["GET"])
-@require_auth(role="admin")
+@require_auth(role=["admin", "viewer"])
 def list_workspaces_route():
     workspaces = []
     for ws in workspaces_col.find({}, {"_id": 0}):

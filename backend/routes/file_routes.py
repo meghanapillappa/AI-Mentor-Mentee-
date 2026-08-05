@@ -17,11 +17,13 @@ import pandas as pd
 from flask import Blueprint, jsonify, request, send_file
 from .dataloader import load_dataset
 from services.file_parsing import dataframe_to_file_bytes
+from auth import require_auth
 
 file_bp = Blueprint('files', __name__)
 
 
 @file_bp.route('/api/parse-file', methods=['POST'])
+@require_auth(role="admin")
 def parse_file_route():
     """
     Universal file parser.
@@ -63,6 +65,7 @@ def parse_file_route():
 
 
 @file_bp.route('/api/save-file', methods=['POST'])
+@require_auth(role="admin")
 def save_file_route():
     """
     Accepts JSON { rows: [...], format: 'csv'|'txt'|'xlsx'|'sql', filename, table_name? }

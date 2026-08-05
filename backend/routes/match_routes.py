@@ -27,6 +27,7 @@ match_bp = Blueprint('matching', __name__)
 
 
 @match_bp.route('/api/match', methods=['POST'])
+@require_auth(role="admin")
 def match_mentors_students():
     try:
         data = request.get_json(silent=True)
@@ -56,6 +57,7 @@ def match_mentors_students():
 
 
 @match_bp.route('/api/rebalance-add', methods=['POST'])
+@require_auth(role="admin")
 def rebalance_add_route():
     """
     Body: { cohorts: [<current match result>], new_mentor: "Name" }
@@ -95,6 +97,7 @@ def rebalance_add_route():
 
 
 @match_bp.route('/api/rebalance-remove', methods=['POST'])
+@require_auth(role="admin")
 def rebalance_remove_route():
     """
     Body: { cohorts: [<current match result>], removed_mentor: "Name" }

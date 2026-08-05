@@ -39,7 +39,7 @@ def _json_safe(value):
 
 
 @db_viewer_bp.route("/api/db-viewer/collections", methods=["GET"])
-@require_auth(role="admin")
+@require_auth(role=["admin", "viewer"])
 def list_collections_route():
     """?workspace=<db_name> — omit for the control database."""
     workspace_db_name = request.args.get("workspace") or None
@@ -53,7 +53,7 @@ def list_collections_route():
 
 
 @db_viewer_bp.route("/api/db-viewer/directory-as-cohorts", methods=["GET"])
-@require_auth(role="admin")
+@require_auth(role=["admin", "viewer"])
 def directory_as_cohorts_route():
     """
     Rebuilds cohort-shaped data { mentor, student_count, average_gpa,
@@ -103,7 +103,8 @@ def directory_as_cohorts_route():
 
 
 
-@require_auth(role="admin")
+@db_viewer_bp.route("/api/db-viewer/documents", methods=["GET"])
+@require_auth(role=["admin", "viewer"])
 def list_documents_route():
     """?workspace=<db_name>&collection=<name>&page=1&limit=20"""
     workspace_db_name = request.args.get("workspace") or None

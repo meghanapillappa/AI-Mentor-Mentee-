@@ -93,7 +93,12 @@ def logout(token):
 
 def require_auth(role=None):
     """Route decorator. @require_auth() for any logged-in user,
-    @require_auth(role="admin") to restrict to admins."""
+    @require_auth(role="admin") to restrict to a single role,
+    @require_auth(role=["admin", "viewer"]) to allow any of several roles."""
+    allowed = None
+    if role is not None:
+        allowed = {role} if isinstance(role, str) else set(role)
+
     def decorator(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
@@ -101,7 +106,7 @@ def require_auth(role=None):
             session = get_session(token)
             if not session:
                 return jsonify({"error": "Not authenticated"}), 401
-            if role and session["role"] != role:
+            if allowed and session["role"] not in allowed:
                 return jsonify({"error": "Forbidden"}), 403
 
             g.session = session  # Attach session to Flask's g object

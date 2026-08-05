@@ -24,7 +24,7 @@ def _deadlines_col(workspace_db_name):
 
 
 @deadline_bp.route("/api/deadlines", methods=["GET"])
-@require_auth(role="admin")
+@require_auth(role=["admin", "viewer"])
 def list_deadlines_route():
     workspace_db_name = request.args.get("workspace")
     if not workspace_db_name:
@@ -153,7 +153,7 @@ def check_session_deadline(workspace_db_name, session_number, mentor_username):
 
 
 @deadline_bp.route("/api/deadlines/overdue-mentors", methods=["GET"])
-@require_auth(role="admin")
+@require_auth(role=["admin", "viewer"])
 def overdue_mentors_route():
     """
     For every session with a deadline that has passed, finds every mentor
