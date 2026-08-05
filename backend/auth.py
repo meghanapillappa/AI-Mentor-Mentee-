@@ -180,3 +180,70 @@ def upsert_directory_user(workspace_db_name, username, role, profile):
         "created_at": datetime.now(timezone.utc),
     })
     return {"username": username, "role": role, "created": True, "password": password}
+
+
+def sync_workspace_directory(workspace_db_name, cohorts):
+    """
+    Synchronizes a workspace's directory collection with a new match result:
+    - Upserts active mentors and mentees with updated profile data.
+    - Removes mentors or mentees that are no longer part of the match.
+    - Preserves existing password hashes so credentials remain valid.
+
+    Returns a dictionary summarizing accounts created, updated, and removed.
+    """
+    from db import get_workspace_db
+
+    directory_col = get_workspace_db(workspace_db_name)["directory"]
+    directory_col.create_index("username", unique=True)
+
+    active_usernames = set()
+    created_count = 0
+    updated_count = 0
+    passwords = {}
+
+    for c in cohorts:
+        mentor_name = c.get("mentor")
+        mentor_uid = str(c.get("uid") or mentor_name).strip()
+        students = c.get("students", [])
+        student_uids = [str(s.get("uid")).strip() for s in students if s.get("uid")]
+
+        # 1. Upsert Mentor Account
+        active_usernames.add(mentor_uid)
+        mentor_profile = {
+            "Name": mentor_name,
+            "assigned_mentees": student_uids,
+        }
+        res = upsert_directory_user(workspace_db_name, mentor_uid, "mentor", mentor_profile)
+        if res["created"]:
+            created_count += 1
+            passwords[mentor_uid] = res["password"]
+        else:
+            updated_count += 1
+
+        # 2. Upsert Mentee Accounts
+        for student in students:
+            mentee_uid = str(student.get("uid")).strip()
+            if not mentee_uid:
+                continue
+
+            active_usernames.add(mentee_uid)
+            mentee_profile = {k: v for k, v in student.items() if k != "uid"}
+            mentee_profile["assigned_mentor"] = mentor_name
+
+            m_res = upsert_directory_user(workspace_db_name, mentee_uid, "mentee", mentee_profile)
+            if m_res["created"]:
+                created_count += 1
+                passwords[mentee_uid] = m_res["password"]
+            else:
+                updated_count += 1
+
+    # 3. Clean up removed accounts (e.g. deleted mentors)
+    delete_result = directory_col.delete_many({"username": {"$nin": list(active_usernames)}})
+    removed_count = delete_result.deleted_count
+
+    return {
+        "created_count": created_count,
+        "updated_count": updated_count,
+        "removed_count": removed_count,
+        "passwords": passwords,
+    }
