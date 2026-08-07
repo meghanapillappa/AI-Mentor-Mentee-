@@ -81,7 +81,20 @@ export default function Sidebar({ engine,activeWorkspace, setActiveWorkspace }) 
         {engine.clearingDb ? 'Clearing…' : `Clear "${activeWorkspace?.name || '…'}"`}
       </button>
 
-      <WorkspaceSelector activeWorkspace={activeWorkspace} onSelect={setActiveWorkspace} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <WorkspaceSelector activeWorkspace={activeWorkspace} onSelect={setActiveWorkspace} />
+        <button 
+          className="ghost-btn" 
+          disabled={!activeWorkspace}
+          onClick={() => {
+            if (window.confirm(`Loading "${activeWorkspace?.name}" will overwrite your current unsaved editor data. Continue?`)) {
+              engine.loadWorkspace(activeWorkspace.db_name);
+            }
+          }}
+        >
+          Load Workspace into Engine
+        </button>
+      </div>
 
       <AuditLog entries={engine.auditLogEntries} />
     </aside>

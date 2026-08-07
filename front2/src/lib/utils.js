@@ -26,7 +26,8 @@ export function stripInternalFields(rows) {
 }
 
 export function getMentorName(row) {
-  return getField(row, ['Name', 'name', 'Mentor', 'mentor']);
+  // ADDED more possible column headers for mentors
+  return getField(row, ['Name', 'name', 'Mentor', 'mentor', 'Mentor Name', 'Faculty', 'Guide', 'Teacher', 'Full Name']);
 }
 
 export function buildMentorNameMap(data) {
@@ -40,7 +41,12 @@ export function buildMentorNameMap(data) {
 
 export function extractMentorsList(mentorsData) {
   return mentorsData
-    .map(row => getMentorName(row) ?? Object.values(row).find(v => v !== undefined && v !== null && v !== ''))
+    .map(row => {
+      const name = getMentorName(row);
+      if (name) return name;
+      // FIX: Only fallback to short strings (< 60 chars) so it never grabs a huge bio paragraph
+      return Object.values(row).find(v => typeof v === 'string' && v.trim() !== '' && v.length <= 60);
+    })
     .filter(Boolean);
 }
 

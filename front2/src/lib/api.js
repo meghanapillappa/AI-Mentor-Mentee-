@@ -242,15 +242,17 @@ export async function apiSendMessage(text, menteeUsername) {
 }
 
 /** POST /api/save-match-to-db — persists mentors/mentees to the DB with mentor/mentee roles. */
-export async function apiSaveMatchToDb(mentors, cohorts, workspaceDbName) {
+/** POST /api/save-match-to-db — persists mentors/mentees to the DB with mentor/mentee roles. */
+export async function apiSaveMatchToDb(mentors, cohorts, workspaceDbName, auditLog = []) {
   let response;
   try {
     response = await fetch(`${API_BASE}/api/save-match-to-db`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ mentors, cohorts, workspace: workspaceDbName }),
+      body: JSON.stringify({ mentors, cohorts, workspace: workspaceDbName, audit_log: auditLog }),
     });
-  } catch (networkErr) {
+  }
+  catch (networkErr) {
     return { ok: false, error: `Could not connect to ${API_BASE} to save the match.` };
   }
 
@@ -613,4 +615,19 @@ export async function apiGetMenteeSessionsAdmin(menteeUsername, workspaceDbName)
   if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
   
   return { ok: true, sessions: data.sessions, mentee_username: data.mentee_username };
+}
+
+/** GET /api/workspaces/:dbName/load — loads a full workspace back into the matching engine. */
+export async function apiLoadWorkspace(dbName) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/workspaces/${encodeURIComponent(dbName)}/load`, {
+      headers: { ...authHeaders() },
+    });
+  } catch (networkErr) {
+    return { ok: false, error: `Could not connect to ${API_BASE} to load workspace.` };
+  }
+  const data = await parseJsonResponse(response).catch(err => ({ error: err.message }));
+  if (!response.ok || data.error) return { ok: false, error: data.error || 'Unknown error' };
+  return { ok: true, data };
 }

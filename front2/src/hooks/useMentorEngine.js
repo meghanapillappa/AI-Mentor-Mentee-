@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { apiParseFile, apiRebalanceAdd, apiRebalanceRemove, apiRunMatch, apiSaveFile, apiSaveMatchToDb, apiClearDirectoryAccounts } from '../lib/api';
+import { apiParseFile, apiRebalanceAdd, apiRebalanceRemove, apiRunMatch, apiSaveFile, apiSaveMatchToDb, apiClearDirectoryAccounts, apiLoadWorkspace } from '../lib/api';
 import { buildMentorNameMap, extractMentorsList, extractStudentsList, stripInternalFields,extractExcludedMentors } from '../lib/utils';
 import { buildAuditEvent } from '../lib/auditLog';
 
@@ -170,7 +170,7 @@ export function useMentorEngine() {
     setSavingToDb(true);
     setSaveDbError('');
     try {
-      const result = await apiSaveMatchToDb(stripInternalFields(mentorsData), lastCohorts, workspaceDbName);
+      const result = await apiSaveMatchToDb(stripInternalFields(mentorsData), lastCohorts, workspaceDbName, auditLogEntries);
       if (!result.ok) {
         setSaveDbError(result.error);
         return;
@@ -417,6 +417,37 @@ export function useMentorEngine() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mentorsData]);
 
+  const loadWorkspace = useCallback(async (dbName) => {
+    if (!dbName) return;
+    try {
+      const result = await apiLoadWorkspace(dbName);
+      if (!result.ok) {
+        alert(result.error);
+        return;
+      }
+      
+      const { mentors, mentees, cohorts, audit_log } = result.data;
+      
+      const mentorsWithUids = assignUids(mentors);
+      const menteesWithUids = assignUids(mentees);
+      
+      setMentorsData(mentorsWithUids);
+      setStudentsData(menteesWithUids);
+      setLastCohorts(cohorts);
+      setAuditLogEntries(audit_log || []);
+      setHasRun(cohorts.length > 0);
+      
+      // CRITICAL: Rebuild the snapshot so incremental rebalancing works accurately on the loaded data
+      mentorSnapshotRef.current = buildMentorNameMap(mentorsWithUids);
+      
+      setMentorsStatus({ text: `Loaded ${mentors.length} mentors from database`, kind: 'ok' });
+      setStudentsStatus({ text: `Loaded ${mentees.length} mentees from database`, kind: 'ok' });
+      setCombinedStatus({ text: `Workspace loaded successfully.`, kind: 'ok' });
+    } catch (err) {
+      alert(`Load failed: ${err.message}`);
+    }
+  }, [assignUids]);
+
   return {
     // data
     mentorsData,
@@ -438,6 +469,7 @@ export function useMentorEngine() {
     saveDbError,
     clearingDb,
     // actions
+    loadWorkspace,
     clearDirectoryAccounts,
     saveMatchToDb,
     setNewCredentials,

@@ -39,27 +39,42 @@ def _sanitize_username(raw):
     return slug or None
 
 
-ID_CANDIDATES = ["Student ID", "StudentID", "USN", "Roll Number", "Roll No", "Reg No", "Register Number", "ID", "Mentor ID", "MentorID", "Employee ID", "Faculty ID"]
+ID_CANDIDATES = [
+    # General
+    "ID", "UID", "UUID", "Identifier", 
+    
+    # Student specific
+    "Student ID", "USN", "Roll Number", "Roll No", "Reg No", "Register Number", 
+    "Registration", "Registration ID", "Matriculation", "Matric Number", "Enrollment No","SRN","PRN",
+    
+    # Mentor/Faculty specific
+    "Mentor ID", "Employee ID", "Emp ID", "Faculty ID", "Staff ID"
+]
 NAME_CANDIDATES = ["Name", "Student Name", "Mentor", "Mentor Name", "Faculty", "Guide", "Teacher"]
 
 
-def _extract_username(row, fallback_prefix, fallback_index):
+def _extract_username(row, role, fallback_prefix, fallback_index):
     """
-    Tries an ID-like column first, then a name-like column (sanitized),
-    then guarantees SOMETHING so a row is never silently dropped.
+    Tries ID or Name depending on the role's priority:
+    - Mentee: ID first, Name second
+    - Mentor: Name first, ID second
+    Then guarantees SOMETHING so a row is never silently dropped.
     """
     id_val = _find_field(row, ID_CANDIDATES)
-    if id_val:
-        return str(id_val).strip()
-
     name_val = _find_field(row, NAME_CANDIDATES)
-    if name_val:
-        slug = _sanitize_username(name_val)
-        if slug:
-            return slug
 
-    # Last resort: guarantees every row gets saved, even with no
-    # identifiable ID/name column at all.
+    id_str = str(id_val).strip() if id_val else None
+    name_slug = _sanitize_username(name_val) if name_val else None
+
+    # Priority Rules
+    if role == "mentor":
+        if name_slug: return name_slug
+        if id_str: return id_str
+    else: # mentee
+        if id_str: return id_str
+        if name_slug: return name_slug
+
+    # Last resort: guarantees every row gets saved
     return f"{fallback_prefix}-{fallback_index}"
 
 
@@ -71,18 +86,29 @@ def _display_name(row, fallback_username):
 @require_auth(role="admin")
 def save_match_to_db_route():
     """
-    Body: { mentors: [<raw mentor rows>], cohorts: [<match result>] }
+    Body: { mentors: [<raw mentor rows>], cohorts: [<match result>], audit_log: [<events>] }
     """
     try:
+        from db import get_workspace_db
+        
         data = request.get_json(silent=True) or {}
         mentors = data.get("mentors", [])
         cohorts = data.get("cohorts", [])
+        audit_log = data.get("audit_log", [])
         workspace_db_name = data.get("workspace")
 
+        
         if not workspace_db_name:
             return jsonify({"error": "workspace is required — create or select one first."}), 400
         if not cohorts:
             return jsonify({"error": "No match results to save. Run a match first."}), 400
+
+        from db import get_workspace_db
+        directory_col = get_workspace_db(workspace_db_name)["directory"]
+        directory_col.update_many(
+            {"role": "mentor"},
+            {"$set": {"profile.assigned_mentees": [], "profile.mentee_count": 0}}
+        )
 
         mentor_rows_by_name = {}
         for row in mentors:
@@ -97,11 +123,11 @@ def save_match_to_db_route():
         for m_idx, cohort in enumerate(cohorts):
             mentor_name = cohort.get("mentor")
             mentor_row = mentor_rows_by_name.get(mentor_name, {"Name": mentor_name})
-            mentor_username = _extract_username(mentor_row, "mentor", m_idx)
+            mentor_username = _extract_username(mentor_row, "mentor", "mentor", m_idx)
 
             student_ids = []
             for s_idx, student in enumerate(cohort.get("students", [])):
-                student_username = _extract_username(student, f"mentee-{m_idx}", s_idx)
+                student_username = _extract_username(student, "mentee", f"mentee-{m_idx}", s_idx)
 
                 student_profile = {k: v for k, v in student.items() if k != "uid"}
                 student_profile["assigned_mentor"] = mentor_name
@@ -121,6 +147,11 @@ def save_match_to_db_route():
             mentors_saved += 1
             if result["created"]:
                 created_accounts.append({**result, "name": _display_name(mentor_row, mentor_username)})
+
+        if audit_log:
+            audit_col = get_workspace_db(workspace_db_name)["audit_log"]
+            audit_col.delete_many({}) 
+            audit_col.insert_many(audit_log)
 
         return jsonify({
             "mentors_saved": mentors_saved,

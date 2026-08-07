@@ -130,3 +130,77 @@ def save_workspace_route():
         "removed_count": sync_res["removed_count"],
         "passwords": sync_res["passwords"],
     })
+
+
+@workspace_bp.route("/api/workspaces/<db_name>/load", methods=["GET"])
+@require_auth(role="admin")
+def load_workspace_route(db_name):
+    from db import get_workspace_db
+    from routes.save_directory_routes import _find_field, NAME_CANDIDATES
+    
+    db = get_workspace_db(db_name)
+    directory = list(db["directory"].find({}, {"_id": 0}))
+    
+    mentors_raw = [doc for doc in directory if doc.get("role") == "mentor"]
+    mentees_by_username = {doc["username"]: doc for doc in directory if doc.get("role") == "mentee"}
+    
+    mentors = []
+    cohorts = []
+    
+    for m_doc in mentors_raw:
+        m_profile = m_doc.get("profile", {}).copy()
+        
+        # 1. Provide the stable UID for the frontend tables so reallocation works
+        m_profile["_uid"] = m_doc["username"]
+        
+        # 2. Extract the exact Mentor Name regardless of column headers
+        cohort_mentor_name = _find_field(m_profile, NAME_CANDIDATES) or m_doc["username"]
+        
+        # 3. Clean up internal routing fields before populating the Editable Table
+        m_profile.pop("assigned_mentees", None)
+        m_profile.pop("mentee_count", None)
+        mentors.append(m_profile)
+        
+        # 4. Build the cohort roster
+        assigned = m_doc.get("profile", {}).get("assigned_mentees", [])
+        students = []
+        for mentee_username in assigned:
+            mentee = mentees_by_username.get(mentee_username)
+            if not mentee: 
+                continue
+            
+            s_prof = mentee.get("profile", {}).copy()
+            s_prof.pop("assigned_mentor", None)
+            s_prof.pop("sessions", None)
+            s_prof["uid"] = mentee_username # Required for frontend rebalancing
+            students.append(s_prof)
+        
+        # Calculate stats
+        cgpas = [float(s.get("CGPA")) for s in students if s.get("CGPA") not in (None, "")]
+        avg_gpa = round(sum(cgpas) / len(cgpas), 3) if cgpas else 0
+        
+        cohorts.append({
+            "mentor": cohort_mentor_name,
+            "student_count": len(students),
+            "average_gpa": avg_gpa,
+            "students": students
+        })
+
+    mentees = []
+    for s_doc in mentees_by_username.values():
+        s_profile = s_doc.get("profile", {}).copy()
+        s_profile.pop("assigned_mentor", None)
+        s_profile.pop("sessions", None)
+        s_profile["_uid"] = s_doc["username"]
+        mentees.append(s_profile)
+        
+    audit_log = []
+    if "audit_log" in db.list_collection_names():
+        audit_log = list(db["audit_log"].find({}, {"_id": 0}))
+
+    return jsonify({
+        "mentors": mentors,
+        "mentees": mentees,
+        "cohorts": cohorts,
+        "audit_log": audit_log
+    })

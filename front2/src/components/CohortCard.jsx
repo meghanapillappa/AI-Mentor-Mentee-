@@ -7,8 +7,11 @@ export default function CohortCard({
   viewLimitCount,
   searchTerm,
   anyStudentFilterActive,
-  onViewStudent,
-}) {
+  onViewStudent // Ensure this prop is here
+}){
+  
+  // ADD THIS LINE RIGHT HERE:
+  const colCount = onViewStudent ? 5 : 4; 
   return (
     <div className="cohort-card">
       <div className="cohort-header">
