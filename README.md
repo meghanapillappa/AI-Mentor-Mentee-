@@ -1,3 +1,4 @@
+````markdown
 # Mentor Distribution Engine (AI-Mentor-Mentee)
 
 A proportional-fair mentor/mentee matching **and multi-tenant workspace
@@ -7,8 +8,10 @@ add, remove or exclude mentors afterwards and watch the engine rebalance
 incrementally instead of reshuffling everyone.
 
 Beyond matching, the app persists each run to its own MongoDB workspace,
-provisions logins for every mentor and mentee, and exposes **role-based
-portals** for Admins, Mentors, Mentees and read-only Viewers.
+provisions logins for every mentor and mentee, permanently logs reallocation
+audits, and exposes **role-based portals** for Admins, Mentors, Mentees and
+read-only Viewers. Admins can even load a previously saved workspace back into
+the engine to perform further reallocations.
 
 The project has one Flask backend and **two** interchangeable frontends: a
 React (Vite) app (`front2/`, the actively developed one) and the original
@@ -39,10 +42,10 @@ AI-Mentor-Mentee/
 │   │   ├── file_routes.py             # POST /api/parse-file, POST /api/save-file
 │   │   ├── match_routes.py            # /api/match, /api/rebalance-add, /api/rebalance-remove
 │   │   ├── mentee_profile_routes.py   # Mentee profile fetch
-│   │   ├── mentee_sessions_routes.py  # Meeting/session logging
+│   │   ├── mentee_sessions_routes.py  # Meeting/session logging & Admin session fetching
 │   │   ├── password_routes.py         # Reset requests & admin approvals
-│   │   ├── save_directory_routes.py   # Snapshot serialization to a workspace DB
-│   │   └── workspace_routes.py        # Workspace CRUD (list / save / drop)
+│   │   ├── save_directory_routes.py   # Snapshot serialization to a workspace DB & Audit logging
+│   │   └── workspace_routes.py        # Workspace CRUD (list / save / drop / load)
 │   └── services/
 │       ├── file_parsing.py      # CSV/TXT/XLSX/SQL read + write (data access layer)
 │       ├── format_converter.py  # Multi-format input converter (column-alias normalization)
@@ -57,8 +60,8 @@ AI-Mentor-Mentee/
 │   └── src/
 │       ├── main.jsx             # ReactDOM root
 │       ├── App.jsx              # Top-level layout + routing; wires hooks & components
-│       ├── config.js            # Resolves API_BASE (query param → localStorage → .env → default)
-│       ├── index.css            # Full stylesheet (design tokens, layout, components)
+│       ├── config.js             # Resolves API_BASE (query param → localStorage → .env → default)
+│       ├── index.css             # Full stylesheet (design tokens, layout, components)
 │       ├── hooks/
 │       │   ├── useAuth.js           # Auth/session context hook
 │       │   └── useMentorEngine.js   # All shared matching state + business logic (the "brain")
@@ -69,7 +72,7 @@ AI-Mentor-Mentee/
 │       │   ├── filterCohorts.js     # Pure search/filter/view-limit logic for results
 │       │   └── auditLog.js          # Normalizes add/remove payloads into one event shape
 │       └── components/
-│           ├── Sidebar.jsx              # File uploads + "Execute Balancing" + navigation
+│           ├── Sidebar.jsx              # File uploads + "Execute Balancing" + "Load Workspace" + navigation
 │           ├── DatasetEditor.jsx        # Editable mentors/mentees preview tables
 │           ├── RemovalDecisionModal.jsx # Choose redistribute vs. direct-map on mentor removal
 │           ├── ReallocationBanner.jsx   # "Mentor removed, here's who moved" banner
@@ -80,7 +83,7 @@ AI-Mentor-Mentee/
 │           ├── CohortCard.jsx           # One mentor's roster card
 │           ├── WorkspaceSelector.jsx    # Pick / save / drop a MongoDB workspace
 │           ├── NewCredentialsModal.jsx  # Shows generated temp passwords after a sync
-│           ├── DatabaseViewerPage.jsx   # 🔍 Read-only database inspector
+│           ├── DatabaseViewerPage.jsx   # 🔍 Read-only database inspector + Admin Session Viewer
 │           ├── ViewerHome.jsx           # Viewer-role landing page
 │           ├── LoginPage.jsx            # Auth entry
 │           ├── ChangePasswordPage.jsx   # Self-service password update
@@ -90,7 +93,7 @@ AI-Mentor-Mentee/
 │           ├── DeadlinesPage.jsx        # Admin deadline management
 │           ├── MentorHome.jsx           # Mentor portal: roster + session logger
 │           ├── MenteeHome.jsx           # Mentee portal: assigned mentor + logs
-│           ├── MenteeDetailModal.jsx    # Student contact card
+│           ├── MenteeDetailModal.jsx    # Student contact card & Admin read-only session viewer
 │           └── UserHome.jsx             # Role-based dashboard router
 │
 ├── index.html                   # 🗄️ Legacy vanilla-JS frontend — kept for reference
@@ -102,7 +105,7 @@ AI-Mentor-Mentee/
     ├── matching.js               # Run match, incremental add/remove
     ├── reallocationReport.js     # Mentor-removal impact banner
     └── filters.js                # Search/sort/pagination for results
-```
+````
 
 > **Which frontend should I run?** Use `front2/`. The root `index.html`/`js/`
 > vanilla version is a lighter-weight, no-build-step reference for the core
@@ -123,7 +126,7 @@ AI-Mentor-Mentee/
    sheet/table is mentors vs. mentees (by name, then by column signature),
    then runs the mentee dataset through the **multi-format input converter**
    (`services/format_converter.py`), which maps whatever column names/order
-   the source used (`USN`, `SGPA`, `Batch`, ...) onto the canonical schema:
+   the source used (`USN`, `Roll No`, `Student ID`, `Batch`, ...) onto the canonical schema:
    `Student ID, Name, Section, CGPA`.
 4. **Match.** `POST /api/match` runs the stratified-balancing algorithm
    (`services/matching_engine.py`), producing one cohort per mentor.
@@ -131,17 +134,15 @@ AI-Mentor-Mentee/
    triggers `POST /api/rebalance-add` / `POST /api/rebalance-remove` — only
    the affected students move; nobody else's assignment is disturbed.
    Removals go through the **Removal Decision Modal** first.
-6. **Persist.** Saving the workspace (`POST /api/save-workspace`) writes the
+6. **Persist.** Saving the workspace (`POST /api/save-match-to-db`) writes the
    whole distribution into an isolated MongoDB database
    (`mm_<workspace_slug>`), **syncs the directory** — provisioning logins for
-   new mentors/mentees, updating roster bindings, and purging mentors that
-   were removed during rebalancing — and returns any newly generated
-   temporary passwords.
-7. **Use the portals.** Mentors see their roster and log meetings, mentees
-   see their mentor and past logs, viewers inspect everything read-only.
-8. **Audit.** Every add/remove is logged with exactly which students moved
-   and from/to which mentor — viewable in a modal and downloadable as a
-   standalone `.csv` from the **Audit Log** panel.
+   new mentors/mentees, updating roster bindings, purging removed mentors —
+   permanently saves the **Audit Log**, and returns any newly generated temporary passwords.
+7. **Load & Reallocate.** Admins can load a previously saved workspace back into
+   the matching engine at any time to execute new reallocations without starting from scratch.
+8. **Use the portals.** Mentors see their roster and log meetings, mentees
+   see their mentor and past logs, viewers inspect everything read-only, and admins can view specific mentee session histories on-demand.
 
 ---
 
@@ -149,22 +150,25 @@ AI-Mentor-Mentee/
 
 Two tiers of MongoDB databases:
 
-**Control DB — `mentor_mentee`**
+**Control DB —** **`mentor_mentee`**
 
-| Collection   | Contents                                              |
-|--------------|-------------------------------------------------------|
-| `users`      | Global accounts (admin / mentor / mentee / viewer), hashed passwords |
-| `workspaces` | Metadata for every saved run (slug, label, created-at, counts) |
-| `sessions`   | Login tokens                                          |
-| configs      | System-level settings such as submission deadlines    |
+| **Collection**      | **Contents**                                                         |
+| ------------------- | -------------------------------------------------------------------- |
+| `users`             | Global accounts (admin / mentor / mentee / viewer), hashed passwords |
+| `workspaces`        | Metadata for every saved run (slug, label, created-at, counts)       |
+| `sessions`          | Login tokens                                                         |
+| `password_requests` | Pending user password reset/change requests                          |
 
-**Workspace DBs — `mm_<workspace_slug>`** (one per saved run)
+**Workspace DBs —** **`mm_<workspace_slug>`** (one per saved run)
 
-A `directory` collection holding that run's mentors, mentees, credentials,
-profiles and recorded session notes — fully isolated from every other
-workspace, so dropping a run never touches another one.
+A series of collections isolated to a specific dataset:
 
----
+| **Collection** | **Contents**                                                                    |
+| -------------- | ------------------------------------------------------------------------------- |
+| `directory`    | That run's mentors, mentees, credentials, profiles, and recorded session notes. |
+| `deadlines`    | Configured session due dates and mentor extensions.                             |
+| `messages`     | 1:1 chat logs between mentors and mentees.                                      |
+| `audit_log`    | Permanent record of algorithmic reallocations.                                  |
 
 ## ⚙️ Backend (`backend/`)
 
@@ -172,61 +176,59 @@ workspace, so dropping a run never touches another one.
 
 **Matching & files**
 
-| Method | Endpoint                | Purpose                                                              |
-|--------|-------------------------|-----------------------------------------------------------------------|
-| POST   | `/api/parse-file`       | Upload a raw file → `{ mentors, mentees, mentees_normalized }`        |
-| POST   | `/api/save-file`        | Serialize edited rows back out as a downloadable file                 |
-| POST   | `/api/match`            | Run the full balancing algorithm → cohorts                            |
-| POST   | `/api/rebalance-add`    | Add a mentor → `{ cohorts, new_mentor, students_pulled, sources }`     |
-| POST   | `/api/rebalance-remove` | Remove a mentor → `{ cohorts, removed_mentor, students_reassigned, redistribution }` |
+| **Method** | **Endpoint**            | **Purpose**                                                                          |
+| ---------- | ----------------------- | ------------------------------------------------------------------------------------ |
+| POST       | `/api/parse-file`       | Upload a raw file → `{ mentors, mentees, mentees_normalized }`                       |
+| POST       | `/api/save-file`        | Serialize edited rows back out as a downloadable file                                |
+| POST       | `/api/match`            | Run the full balancing algorithm → cohorts                                           |
+| POST       | `/api/rebalance-add`    | Add a mentor → `{ cohorts, new_mentor, students_pulled, sources }`                   |
+| POST       | `/api/rebalance-remove` | Remove a mentor → `{ cohorts, removed_mentor, students_reassigned, redistribution }` |
 
 **Workspaces & persistence**
 
-| Method | Endpoint                     | Purpose                                                    |
-|--------|------------------------------|-------------------------------------------------------------|
-| POST   | `/api/save-workspace`        | Snapshot to `mm_<workspace_slug>` + sync user credentials    |
-| GET    | `/api/workspaces`            | List saved workspaces                                        |
-| DELETE | `/api/workspaces/<db_name>`  | Drop a workspace database                                    |
+| **Method** | **Endpoint**                     | **Purpose**                                                                |
+| ---------- | -------------------------------- | -------------------------------------------------------------------------- |
+| POST       | `/api/save-match-to-db`          | Snapshot cohorts and audit log to `mm_<workspace_slug>` + sync credentials |
+| GET        | `/api/workspaces`                | List saved workspaces                                                      |
+| GET        | `/api/workspaces/<db_name>/load` | Load a saved workspace back into the matching engine                       |
+| DELETE     | `/api/workspaces/<db_name>`      | Drop a workspace database                                                  |
+| DELETE     | `/api/directory-accounts`        | Clear all mentor/mentee accounts from a workspace                          |
 
 **Portals**
 
-| Method   | Endpoint                 | Purpose                                        |
-|----------|--------------------------|-------------------------------------------------|
-| GET      | `/api/my-cohort`         | Mentor portal roster fetch                      |
-| GET      | `/api/my-profile`        | Mentee portal profile fetch                     |
-| GET/POST | `/api/mentee-sessions`   | Fetch / create meeting notes for a mentee       |
-| GET      | `/api/db-viewer/*`       | Read-only inspector routes for Viewer accounts  |
+| **Method** | **Endpoint**                             | **Purpose**                                          |
+| ---------- | ---------------------------------------- | ---------------------------------------------------- |
+| GET        | `/api/my-cohort`                         | Mentor portal roster fetch                           |
+| GET        | `/api/my-profile`                        | Mentee portal profile fetch                          |
+| GET        | `/api/mentee-sessions/<mentee_username>` | Admin/Viewer specific mentee session history fetch   |
+| GET/POST   | `/api/mentee-sessions`                   | Mentor fetch / create meeting notes for a mentee     |
+| GET        | `/api/db-viewer/*`                       | Read-only inspector routes for Viewer/Admin accounts |
 
 **Auth & admin**
 
-| Method | Endpoint                    | Purpose                                     |
-|--------|-----------------------------|----------------------------------------------|
-| POST   | `/api/login`, `/api/logout` | Session lifecycle                            |
-| GET    | `/api/me`                   | Current session state + role                 |
-| POST   | `/api/change-password`      | Self-service password update                 |
-| POST   | `/api/password-requests`    | Raise a reset request                        |
-| GET/POST | `/api/password-requests/*` | Admin: list / approve reset requests        |
-| GET/POST | `/api/deadline`           | Read / set the mentor log submission deadline |
+| **Method** | **Endpoint**                | **Purpose**                                   |
+| ---------- | --------------------------- | --------------------------------------------- |
+| POST       | `/api/login`, `/api/logout` | Session lifecycle                             |
+| GET        | `/api/me`                   | Current session state + role                  |
+| POST       | `/api/forgot-password`      | Raise a reset request                         |
+| GET/POST   | `/api/password-requests/*`  | Admin: list / approve reset requests          |
+| GET/POST   | `/api/deadlines`            | Read / set the mentor log submission deadline |
 
 `sources` / `redistribution` are per-mentor breakdowns of exactly which
 students moved where — this is what feeds the Audit Log.
 
 ### Key modules
 
-- **`services/format_converter.py`** — the multi-format input converter.
+* **`services/format_converter.py`** — the multi-format input converter.
   Alias-maps arbitrary mentee column names onto
-  `Student ID, Name, Section, CGPA` via `STUDENT_COLUMN_ALIASES`. No Flask
-  dependency; reusable standalone or in tests.
-- **`services/matching_engine.py`** — the stratified-balancing algorithm
+  `Student ID, Name, Section, CGPA` via `STUDENT_COLUMN_ALIASES`. Extremely bulletproof ID column matching.
+* **`services/matching_engine.py`** — the stratified-balancing algorithm
   plus `add_mentor_rebalance` / `remove_mentor_rebalance` for incremental
   changes.
-- **`routes/dataloader.py`** — universal file loader; auto-detects mentor
+* **`routes/dataloader.py`** — universal file loader; auto-detects mentor
   vs. mentee data and runs mentees through the format converter.
-- **`auth.py`** — password hashing, token issue/verify, and the **workspace
-  directory sync** that reconciles the live distribution against the stored
-  directory on every save.
-- **`routes/Db_viewer_routes.py`** — read-only projections of a workspace
-  for Viewer accounts; never exposes write paths or password material.
+* **`auth.py`** — password hashing, token issue/verify, and the **workspace directory sync** that reconciles the live distribution against the stored
+  directory on every save while preserving session histories.
 
 ---
 
@@ -247,94 +249,85 @@ a static site, and pointing at a non-local backend via
 
 ### Feature → file map
 
-| Feature                             | Where it lives                                                |
-|-------------------------------------|----------------------------------------------------------------|
-| Login / session / role routing      | `hooks/useAuth.js` + `lib/auth.js` + `components/LoginPage.jsx` + `UserHome.jsx` |
-| File uploads                        | `components/Sidebar.jsx` + `hooks/useMentorEngine.js`          |
-| Editable mentor/mentee tables       | `components/DatasetEditor.jsx`                                 |
-| Run match / incremental rebalance   | `hooks/useMentorEngine.js` (`runMatch`, the mentor-diff effect) |
-| **Removal decision (redistribute vs. direct-map)** | `components/RemovalDecisionModal.jsx`           |
-| Mentor-removal impact banner        | `components/ReallocationBanner.jsx`                            |
-| Audit log (add/remove history)      | `components/AuditLog.jsx` + `lib/auditLog.js`                  |
-| Results filtering/search            | `components/SearchFilterBar.jsx` + `lib/filterCohorts.js`      |
-| Summary metrics                     | `components/MacroMetrics.jsx`                                  |
-| Results display                     | `components/CohortsGrid.jsx` + `components/CohortCard.jsx`     |
-| Exclude / buffer mentors            | `components/DatasetEditor.jsx` + `lib/api.js` + `lib/utils.js` |
-| **Save / switch / drop workspaces** | `components/WorkspaceSelector.jsx`                             |
-| **Generated credentials on sync**   | `components/NewCredentialsModal.jsx`                           |
-| **Read-only database viewer**       | `components/DatabaseViewerPage.jsx` + `components/ViewerHome.jsx` |
-| Mentor portal + session logger      | `components/MentorHome.jsx`                                    |
-| Mentee portal + profile             | `components/MenteeHome.jsx` + `components/MenteeDetailModal.jsx` |
-| Deadlines                           | `components/DeadlineBanner.jsx` + `components/DeadlinesPage.jsx` |
-| Password reset flow                 | `ForgotPasswordPage.jsx` + `PasswordRequestsPage.jsx` + `ChangePasswordPage.jsx` |
+| **Feature**                                        | **Where it lives**                                                               |
+| -------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Login / session / role routing                     | `hooks/useAuth.js` + `lib/auth.js` + `components/LoginPage.jsx` + `UserHome.jsx` |
+| File uploads & Workspace Loading                   | `components/Sidebar.jsx` + `hooks/useMentorEngine.js`                            |
+| Editable mentor/mentee tables                      | `components/DatasetEditor.jsx`                                                   |
+| Run match / incremental rebalance                  | `hooks/useMentorEngine.js` (`runMatch`, the mentor-diff effect)                  |
+| **Removal decision (redistribute vs. direct-map)** | `components/RemovalDecisionModal.jsx`                                            |
+| Mentor-removal impact banner                       | `components/ReallocationBanner.jsx`                                              |
+| Audit log (add/remove history)                     | `components/AuditLog.jsx` + `lib/auditLog.js`                                    |
+| Results filtering/search                           | `components/SearchFilterBar.jsx` + `lib/filterCohorts.js`                        |
+| Summary metrics                                    | `components/MacroMetrics.jsx`                                                    |
+| Results display                                    | `components/CohortsGrid.jsx` + `components/CohortCard.jsx`                       |
+| Exclude / buffer mentors                           | `components/DatasetEditor.jsx` + `lib/api.js` + `lib/utils.js`                   |
+| **Save / switch / drop workspaces**                | `components/WorkspaceSelector.jsx`                                               |
+| **Generated credentials on sync**                  | `components/NewCredentialsModal.jsx`                                             |
+| **Read-only database viewer**                      | `components/DatabaseViewerPage.jsx` + `components/ViewerHome.jsx`                |
+| Mentor portal + session logger                     | `components/MentorHome.jsx`                                                      |
+| Mentee portal + profile                            | `components/MenteeHome.jsx` + `components/MenteeDetailModal.jsx`                 |
+| Deadlines                                          | `components/DeadlineBanner.jsx` + `components/DeadlinesPage.jsx`                 |
+| Password reset flow                                | `ForgotPasswordPage.jsx` + `PasswordRequestsPage.jsx`                            |
 
 ---
 
 ## 👤 Roles & portals
 
-| Role       | Can do                                                                                     |
-|------------|---------------------------------------------------------------------------------------------|
-| **Admin**  | Upload datasets, run and rebalance matches, manage buffer mentors, set deadlines, approve password resets, save/publish and drop workspaces |
-| **Mentor** | View assigned mentee roster, open student contact cards, log meeting sessions               |
-| **Mentee** | View assigned mentor profile and contact details, read past meeting logs                    |
-| **Viewer** | Read-only inspection of saved datasets, cohort metrics and mentor session progress — no edits |
+| **Role**   | **Can do**                                                                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Admin**  | Upload datasets, run algorithms, load/save/drop workspaces, set deadlines, approve password resets, view specific mentee session histories |
+| **Mentor** | View assigned mentee roster, open student contact cards, log meeting sessions                                                              |
+| **Mentee** | View assigned mentor profile and contact details, read past meeting logs, update self-service fields                                       |
+| **Viewer** | Read-only inspection of saved datasets, cohort metrics and mentor session progress — no edits                                              |
 
 Seed the first accounts with `backend/routes/create_admin.py` and
 `backend/routes/create_viewer.py`.
-
----
 
 ## 🗄️ Legacy vanilla-JS frontend (`index.html` + `js/`)
 
 No build step — open `index.html` directly (or serve it statically) with the
 backend running. Script load order matters and is fixed in `index.html`:
+
 `state.js` → `utils.js` → `api.js` → feature modules (`datasetEditor.js`,
 `reallocationReport.js`, `matching.js`, `filters.js`). It covers the core
 matching flow only and isn't where new work happens.
 
----
-
 ## ✨ Feature notes
 
-- **Multi-format input converter** — uploads don't need to be pre-formatted.
+* **Multi-format input converter** — uploads don't need to be pre-formatted.
   A student sheet with `USN`/`Student Name`/`Batch`/`SGPA` columns (in any
   order) is automatically mapped onto the canonical schema before it reaches
-  the matching engine. The UI surfaces a "columns auto-mapped to Student ID /
-  Name / Section / CGPA" status note when it happens.
-- **Mentor exclusion / buffer mentors** — mentors can be marked as excluded
+  the matching engine.
+* **Workspace Loading** — Admins can load an active workspace back into the matching engine at any point. This populates the editable dataset tables and cohorts, allowing for instant drag-and-drop reallocation without re-running the initial match algorithm.
+* **Mentor exclusion / buffer mentors** — mentors can be marked as excluded
   from assignment, either on the first run or during any rerun.
-- **Removal Decision Modal** — removing a mentor opens a decision dialog:
+* **Removal Decision Modal** — removing a mentor opens a decision dialog:
   either redistribute the orphaned cohort across all remaining active
   mentors with the balancing algorithm, or direct-map the entire cohort to
-  one chosen target mentor. The choice is applied before the rebalance runs.
-- **🆕 Database sync on removal & reallocation** — reallocations are no
+  one chosen target mentor.
+* **🆕 Database sync on removal & reallocation** — reallocations are no
   longer frontend-only. When mentors are removed and students are moved,
   saving the workspace pushes the change straight into
   `mm_<workspace_slug>`: roster bindings are rewritten, the removed mentor's
   directory entry and credentials are purged, and mentees are re-bound to
-  their new mentor. Mentor and mentee portals reflect the new assignment on
-  their next load — no manual database cleanup.
-- **🆕 Database Viewer page** — a read-only inspector (`DatabaseViewerPage.jsx`,
+  their new mentor.
+* **🆕 Database Viewer page** — a read-only inspector (`DatabaseViewerPage.jsx`,
   backed by `/api/db-viewer/*`) for browsing a saved workspace: every
-  mentor–mentee match, cohort metrics, and session-logging progress. Viewer
-  accounts land here via `ViewerHome.jsx` and cannot edit anything; admins
-  can open it too as a quick "what's actually in the DB right now?" check.
-- **Audit log** — every mentor addition/removal is recorded with a timestamp,
-  an expandable per-student detail table, and a one-click CSV download.
-- **Deadlines** — admins set a countdown for mentor log submissions; a banner
+  mentor–mentee match, cohort metrics, and session-logging progress. Admins can click on any mentee to view their session history in a read-only modal.
+* **Audit log** — every mentor addition/removal is recorded with a timestamp,
+  an expandable per-student detail table, and is permanently saved to the database.
+* **Deadlines** — admins set a countdown for mentor log submissions; a banner
   surfaces it across the mentor portal.
-- **Password self-service** — mentees/mentors raise reset requests; admins
-  approve them from the requests queue, and temporary passwords are shown
-  once in the credentials modal.
-
----
+* **Password self-service** — mentees/mentors raise reset requests; admins
+  approve them from the requests queue.
 
 ## 🔐 Authentication & Database
 
-- Registration/seeding, login and logout with hashed passwords
-- Session/JWT-based auth; protected endpoints require a valid token
-- MongoDB persists user accounts, workspace metadata, uploaded datasets,
-  saved mentor distributions, session notes and audit history
+* Registration/seeding, login and logout with hashed passwords
+* Session/JWT-based auth; protected endpoints require a valid token
+* MongoDB persists user accounts, workspace metadata, uploaded datasets,
+  saved mentor distributions, session notes, and audit history.
 
 By default the backend expects a MongoDB instance running locally:
 
@@ -344,8 +337,6 @@ mongodb://localhost:27018
 
 Any remote MongoDB deployment works — change the connection string in your
 environment variables.
-
----
 
 ## ⚙️ Backend Setup
 
@@ -357,13 +348,13 @@ python -m venv .venv
 
 Activate it.
 
-Windows:
+**Windows:**
 
 ```bash
 .venv\Scripts\activate
 ```
 
-macOS/Linux:
+**macOS/Linux:**
 
 ```bash
 source .venv/bin/activate
@@ -417,11 +408,11 @@ python app.py
 
 The Flask server will start on:
 
-```
+```text
 http://127.0.0.1:5001
 ```
 
----
+
 
 ## 📦 Backend Dependencies
 
