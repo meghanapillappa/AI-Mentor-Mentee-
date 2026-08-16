@@ -1,0 +1,42 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: mentor-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: change_me
+
+  backend:
+    build:
+      context: .                       # repo root — needs pyproject.toml + uv.lock
+      dockerfile: backend.Dockerfile
+    container_name: mentor-backend
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    ports:
+      - "5000:5000"
+    environment:
+      # Adjust these to whatever backend/db.py actually reads for its Mongo connection.
+      MONGO_URI: mongodb://admin:change_me@mongo:27017/?authSource=admin
+      FLASK_ENV: production
+  frontend:
+    build:
+      context: ./front2
+      dockerfile: ../frontend.Dockerfile
+      args:
+        VITE_API_BASE: http://localhost:5000
+    container_name: mentor-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  mongo_data:
